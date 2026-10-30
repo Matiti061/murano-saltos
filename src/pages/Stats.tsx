@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AcwrBadge } from '../components/AcwrBadge';
 import { ChartCard, ColumnChart, HBarChart, VIZ } from '../components/charts';
-import { NumberBubble } from '../components/PlayerBits';
+import { PositionBubble } from '../components/PlayerBits';
 import { Badge, Card, CardHeader, Disclaimer, PageHeader, Segmented } from '../components/ui';
 import { POSITIONS } from '../db/types';
 import { useActiveTeam } from '../hooks/useActiveTeam';
@@ -11,7 +11,7 @@ import { fmtDate, fmtDayMonth, fmtNum } from '../lib/format';
 import { average, weeklyTotals, type AcwrResult, type LoadPoint } from '../lib/metrics';
 import { NoTeam } from './Dashboard';
 
-type SortKey = 'dorsal' | 'acwr' | 'saltos';
+type SortKey = 'posicion' | 'acwr' | 'saltos';
 
 const acwrRank = (a: AcwrResult) => a.ratio ?? -1;
 
@@ -66,7 +66,7 @@ export function Stats() {
               options={[
                 { value: 'acwr', label: 'ACWR' },
                 { value: 'saltos', label: 'Saltos' },
-                { value: 'dorsal', label: 'Dorsal' },
+                { value: 'posicion', label: 'Posición' },
               ]}
             />
           }
@@ -90,7 +90,7 @@ export function Stats() {
                 <tr key={s.player.id} className="hover:bg-slate-50">
                   <td className="px-3 py-2">
                     <Link to={`/jugadoras/${s.player.id}`} className="flex items-center gap-2">
-                      <NumberBubble player={s.player} size="sm" />
+                      <PositionBubble player={s.player} size="sm" />
                       <span className="font-semibold whitespace-nowrap text-slate-900">{s.player.name}</span>
                       <span className="hidden text-xs text-slate-500 sm:inline">{s.player.position}</span>
                     </Link>

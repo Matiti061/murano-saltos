@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { ArrowLeft, Check } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { NumberBubble } from '../components/PlayerBits';
+import { PositionBubble } from '../components/PlayerBits';
 import { RpeSelector } from '../components/RpeSelector';
 import { useToast } from '../components/Toast';
 import { Button, Card, Field, Input, PageHeader, Textarea } from '../components/ui';
@@ -111,7 +111,7 @@ export function SessionFinish() {
             return (
               <li key={p.id} className="px-4 py-3">
                 <div className="mb-2 flex flex-wrap items-center gap-3">
-                  <NumberBubble player={p} size="sm" />
+                  <PositionBubble player={p} size="sm" />
                   <span className="flex-1 font-semibold text-slate-900">
                     {p.name}
                     <span className="ml-2 text-sm font-normal text-slate-500">{a.jumps} saltos</span>

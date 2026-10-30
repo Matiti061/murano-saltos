@@ -39,3 +39,6 @@ export function slug(s: string): string {
     .replace(/[^a-zA-Z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
 }
+
+/** «1 salto», «3 saltos». */
+export const jumpsLabel = (n: number) => `${fmtNum(n)} ${n === 1 ? 'salto' : 'saltos'}`;

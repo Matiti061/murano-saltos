@@ -29,11 +29,11 @@ label {
 
 @keyframes tap-flash {
   from {
-    box-shadow: 0 0 0 0 rgb(99 102 241 / 0.7);
+    box-shadow: 0 0 0 0 rgb(249 115 22 / 0.7);
     transform: scale(0.97);
   }
   to {
-    box-shadow: 0 0 0 14px rgb(99 102 241 / 0);
+    box-shadow: 0 0 0 14px rgb(249 115 22 / 0);
     transform: scale(1);
   }
 }

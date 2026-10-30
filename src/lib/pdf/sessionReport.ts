@@ -8,7 +8,9 @@ import { playerLabel, type SessionReportData } from '../report';
 
 type RGB = [number, number, number];
 
-const INDIGO: RGB = [49, 46, 129];
+// Naranjo del club; el oscuro se usa para texto y cabeceras de tabla (mejor contraste).
+const BRAND: RGB = [234, 88, 12];
+const BRAND_DARK: RGB = [194, 65, 12];
 const TEXT: RGB = [30, 41, 59];
 const MUTED: RGB = [100, 116, 139];
 const BORDER: RGB = [226, 232, 240];
@@ -29,7 +31,7 @@ const LIMIT_FILL: Record<LimitState, RGB | null> = {
 };
 
 const BAR_FILL: Record<LimitState, RGB> = {
-  none: [79, 70, 229],
+  none: [71, 85, 105],
   ok: [34, 197, 94],
   warn: [245, 158, 11],
   over: [220, 38, 38],
@@ -50,7 +52,8 @@ export function sessionPdfFilename(data: SessionReportData): string {
   return `${kind}_${team}_${data.session.date}.pdf`;
 }
 
-export function createSessionPdf(data: SessionReportData): jsPDF {
+/** `defaultLogo`: escudo del club en data URL, si no se ha subido uno propio en Ajustes. */
+export function createSessionPdf(data: SessionReportData, defaultLogo?: string): jsPDF {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -71,44 +74,45 @@ export function createSessionPdf(data: SessionReportData): jsPDF {
     y = ensureSpace(y, needed);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
-    doc.setTextColor(...INDIGO);
+    doc.setTextColor(...BRAND_DARK);
     doc.text(title, MARGIN, y);
-    doc.setDrawColor(...INDIGO);
+    doc.setDrawColor(...BRAND);
     doc.setLineWidth(0.4);
     doc.line(MARGIN, y + 1.5, MARGIN + contentW, y + 1.5);
     return y + 6;
   };
 
-  // ---- Cabecera ----
-  doc.setFillColor(...INDIGO);
-  doc.rect(0, 0, pageW, 30, 'F');
+  // ---- Cabecera: fondo blanco (mejor para imprimir) con el logo y una franja naranja ----
   let textX = MARGIN;
-  if (settings.logoDataUrl) {
+  const logo = settings.logoDataUrl ?? defaultLogo;
+  if (logo) {
     try {
-      const props = doc.getImageProperties(settings.logoDataUrl);
-      const h = 20;
-      const w = Math.min(36, (props.width / props.height) * h);
-      doc.setFillColor(255, 255, 255);
-      doc.roundedRect(MARGIN - 1, 4, w + 2, h + 2, 2, 2, 'F');
-      doc.addImage(settings.logoDataUrl, props.fileType, MARGIN, 5, w, h);
+      const props = doc.getImageProperties(logo);
+      const h = 22;
+      const w = Math.min(40, (props.width / props.height) * h);
+      doc.addImage(logo, props.fileType, MARGIN, 7, w, h);
       textX = MARGIN + w + 6;
     } catch {
       // Logo no válido: se omite.
     }
   }
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(...TEXT);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.text(settings.clubName || 'Informe', textX, 13);
+  doc.text(settings.clubName || 'Informe', textX, 15);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
+  doc.setTextColor(...BRAND_DARK);
   const title = `Informe de ${SESSION_TYPE_LABEL[session.type].toLowerCase()}${data.team ? ` · ${data.team.name}` : ''}`;
-  doc.text(title, textX, 20);
+  doc.text(title, textX, 22);
   doc.setFontSize(9);
-  doc.text(capital(fmtDateLong(session.date)), textX, 26);
+  doc.setTextColor(...MUTED);
+  doc.text(capital(fmtDateLong(session.date)), textX, 28);
+  doc.setFillColor(...BRAND);
+  doc.rect(0, 33, pageW, 1.6, 'F');
 
   // ---- Datos de la sesión ----
-  let y = 38;
+  let y = 43;
   const timeRange =
     session.mode === 'manual'
       ? 'Registro manual'
@@ -203,7 +207,7 @@ export function createSessionPdf(data: SessionReportData): jsPDF {
     doc.setFontSize(7);
     doc.setTextColor(...MUTED);
     doc.text(
-      `La línea vertical marca el límite individual. Verde < ${settings.limitWarnPct}% · Ámbar ${settings.limitWarnPct}–99% · Rojo: límite alcanzado.`,
+      `La línea vertical marca el límite individual. Gris: sin límite · Verde < ${settings.limitWarnPct}% · Ámbar ${settings.limitWarnPct}–99% · Rojo: límite alcanzado.`,
       MARGIN,
       y + 2,
     );
@@ -216,9 +220,8 @@ export function createSessionPdf(data: SessionReportData): jsPDF {
     autoTable(doc, {
       startY: y,
       margin: { left: MARGIN, right: MARGIN },
-      head: [['#', 'Jugadora', 'Posición', 'Saltos', 'Límite', '%', 'Min', 'RPE', 'sRPE', 'Wellness', 'ACWR saltos', 'ACWR sRPE']],
+      head: [['Jugadora', 'Posición', 'Saltos', 'Límite', '%', 'Min', 'RPE', 'sRPE', 'Wellness', 'ACWR saltos', 'ACWR sRPE']],
       body: data.rows.map((r) => [
-        r.player.number ?? '',
         r.player.name + (r.attendance.status === 'parcial' ? ' (parcial)' : ''),
         r.player.position,
         r.jumps,
@@ -232,31 +235,30 @@ export function createSessionPdf(data: SessionReportData): jsPDF {
         fmtRatio(r.acwrSrpe.ratio),
       ]),
       styles: { fontSize: 8, cellPadding: 1.6, textColor: TEXT, lineColor: BORDER, lineWidth: 0.1 },
-      headStyles: { fillColor: INDIGO, textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
+      headStyles: { fillColor: BRAND_DARK, textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
       columnStyles: {
-        0: { halign: 'center', cellWidth: 8 },
-        3: { halign: 'right', fontStyle: 'bold' },
+        2: { halign: 'right', fontStyle: 'bold' },
+        3: { halign: 'right' },
         4: { halign: 'right' },
         5: { halign: 'right' },
         6: { halign: 'right' },
         7: { halign: 'right' },
-        8: { halign: 'right' },
+        8: { halign: 'center' },
         9: { halign: 'center' },
         10: { halign: 'center' },
-        11: { halign: 'center' },
       },
       didParseCell: (hook: CellHookData) => {
         if (hook.section !== 'body') return;
         const r = data.rows[hook.row.index];
-        if (hook.column.index === 5) {
+        if (hook.column.index === 4) {
           const fill = LIMIT_FILL[r.limitState];
           if (fill) hook.cell.styles.fillColor = fill;
         }
-        if (hook.column.index === 9 && (r.wellnessLow.length > 0 || r.wellnessDrop)) {
+        if (hook.column.index === 8 && (r.wellnessLow.length > 0 || r.wellnessDrop)) {
           hook.cell.styles.fillColor = ACWR_FILL.alto;
         }
-        if (hook.column.index === 10) hook.cell.styles.fillColor = ACWR_FILL[r.acwrJumps.status];
-        if (hook.column.index === 11) hook.cell.styles.fillColor = ACWR_FILL[r.acwrSrpe.status];
+        if (hook.column.index === 9) hook.cell.styles.fillColor = ACWR_FILL[r.acwrJumps.status];
+        if (hook.column.index === 10) hook.cell.styles.fillColor = ACWR_FILL[r.acwrSrpe.status];
       },
     });
     y = lastY(doc, y) + 4;
@@ -301,7 +303,7 @@ export function createSessionPdf(data: SessionReportData): jsPDF {
       horizontalPageBreak: true,
       horizontalPageBreakRepeat: 0,
       styles: { fontSize: 7.5, cellPadding: 1.4, textColor: TEXT, lineColor: BORDER, lineWidth: 0.1, halign: 'right' },
-      headStyles: { fillColor: INDIGO, textColor: 255, fontSize: 7, halign: 'center' },
+      headStyles: { fillColor: BRAND_DARK, textColor: 255, fontSize: 7, halign: 'center' },
       columnStyles: { 0: { halign: 'left', cellWidth: 40 } },
       didParseCell: (hook: CellHookData) => {
         if (hook.section === 'body' && hook.row.index === data.rows.length) {
@@ -328,7 +330,7 @@ export function createSessionPdf(data: SessionReportData): jsPDF {
         fmtNum(data.rows.length ? b.jumps / data.rows.length : null, 1),
       ]),
       styles: { fontSize: 8, cellPadding: 1.6, textColor: TEXT, lineColor: BORDER, lineWidth: 0.1 },
-      headStyles: { fillColor: INDIGO, textColor: 255, fontSize: 7.5 },
+      headStyles: { fillColor: BRAND_DARK, textColor: 255, fontSize: 7.5 },
       columnStyles: {
         0: { halign: 'center', cellWidth: 8 },
         2: { halign: 'center' },
@@ -378,7 +380,7 @@ export function createSessionPdf(data: SessionReportData): jsPDF {
         [c.description, c.physioNotes ? `Fisio: ${c.physioNotes}` : ''].filter(Boolean).join(' · ') || '–',
       ]),
       styles: { fontSize: 8, cellPadding: 1.6, textColor: TEXT, lineColor: BORDER, lineWidth: 0.1 },
-      headStyles: { fillColor: INDIGO, textColor: 255, fontSize: 7.5 },
+      headStyles: { fillColor: BRAND_DARK, textColor: 255, fontSize: 7.5 },
       columnStyles: { 3: { halign: 'center' }, 4: { cellWidth: 70 } },
     });
     y = lastY(doc, y) + 8;

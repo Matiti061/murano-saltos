@@ -5,11 +5,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ComplaintForm } from '../components/ComplaintForm';
 import { LiveCard } from '../components/LiveCard';
 import { Modal } from '../components/Modal';
-import { NumberBubble } from '../components/PlayerBits';
+import { PositionBubble, PositionHeader } from '../components/PlayerBits';
 import { useToast } from '../components/Toast';
 import { Button, ButtonLink, Card, cx, EmptyState, Input, Segmented } from '../components/ui';
 import { isActiveComplaint } from '../db/complaints';
-import { sortPlayers } from '../db/players';
+import { groupByPosition, sortPlayers } from '../db/players';
 import { db } from '../db/schema';
 import {
   addJump,
@@ -21,13 +21,12 @@ import {
   startBlock,
 } from '../db/sessions';
 import { updateSettings, useSettings } from '../db/settings';
-import { ATTENDANCE_LABEL, POSITIONS, SESSION_TYPE_LABEL, type AttendanceStatus, type Player } from '../db/types';
-import { useLocalPref, useNow } from '../hooks/useNow';
+import { ATTENDANCE_LABEL, SESSION_TYPE_LABEL, type AttendanceStatus, type Player } from '../db/types';
+import { useNow } from '../hooks/useNow';
 import { useWakeLock } from '../hooks/useWakeLock';
-import { fmtElapsed } from '../lib/format';
+import { fmtElapsed, jumpsLabel } from '../lib/format';
 import { limitState } from '../lib/metrics';
 
-type SortMode = 'dorsal' | 'posicion' | 'nombre';
 
 function vibrate(pattern: number | number[]) {
   try {
@@ -83,7 +82,6 @@ export function LiveSession() {
   const settings = useSettings();
   const now = useNow(1000);
   const data = useLiveQuery(() => loadLive(id).then((d) => d ?? null), [id]);
-  const [sort, setSort] = useLocalPref<SortMode>('murano.liveSort', 'dorsal');
   const [flashes, setFlashes] = useState<Record<number, number>>({});
   const [complaintPlayer, setComplaintPlayer] = useState<Player | undefined>();
   const [attendanceOpen, setAttendanceOpen] = useState(false);
@@ -93,22 +91,15 @@ export function LiveSession() {
 
   useWakeLock(data?.session.status === 'en_curso');
 
+  // Siempre agrupadas por posición: es lo que mira quien cuenta desde fuera de la pista.
   const cards = useMemo(() => {
     if (!data) return [];
-    const list = data.attendance
+    return data.attendance
       .filter((a) => isPresent(a.status))
       .map((a) => ({ attendance: a, player: data.playersById.get(a.playerId)! }))
       .filter((c) => c.player);
-    const byNumber = (a: (typeof list)[number], b: (typeof list)[number]) =>
-      (a.player.number ?? 999) - (b.player.number ?? 999) || a.player.name.localeCompare(b.player.name, 'es');
-    return list.sort((a, b) => {
-      if (sort === 'nombre') return a.player.name.localeCompare(b.player.name, 'es');
-      if (sort === 'posicion') {
-        return POSITIONS.indexOf(a.player.position) - POSITIONS.indexOf(b.player.position) || byNumber(a, b);
-      }
-      return byNumber(a, b);
-    });
-  }, [data, sort]);
+  }, [data]);
+  const groups = useMemo(() => groupByPosition(cards, (c) => c.player), [cards]);
 
   const tap = useCallback(
     async (player: Player, limit?: number) => {
@@ -135,7 +126,7 @@ export function LiveSession() {
       <div className="p-6">
         <Card>
           <EmptyState title="Entrenamiento no encontrado">
-            <Link to="/" className="text-indigo-700 underline">
+            <Link to="/" className="text-orange-700 underline">
               Volver al panel
             </Link>
           </EmptyState>
@@ -175,18 +166,18 @@ export function LiveSession() {
   return (
     <div className="min-h-screen bg-slate-100">
       {/* Barra superior */}
-      <header className="sticky top-0 z-30 bg-indigo-950 text-white shadow-md">
+      <header className="sticky top-0 z-30 bg-orange-600 text-white shadow-md">
         <div className="flex flex-wrap items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4">
           <Link to="/" className="rounded-lg p-2 hover:bg-white/10" aria-label="Volver al panel (el entrenamiento sigue abierto)">
             <ArrowLeft size={22} />
           </Link>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-indigo-200">
+            <p className="truncate text-sm font-semibold text-orange-100">
               {team?.name} · {SESSION_TYPE_LABEL[session.type]}
             </p>
             <p className="text-xl leading-tight font-bold tabular-nums">
               {finished ? 'Finalizado' : fmtElapsed(now - session.startedAt)}
-              <span className="ml-3 text-base font-semibold text-indigo-200">{totalJumps} saltos</span>
+              <span className="ml-3 text-base font-semibold text-orange-100">{jumpsLabel(totalJumps)}</span>
             </p>
           </div>
           <Button variant="secondary" onClick={undo} className="border-0" disabled={finished}>
@@ -203,7 +194,7 @@ export function LiveSession() {
         </div>
 
         {/* Ejercicio actual */}
-        <div className="border-t border-white/10 bg-indigo-900 px-3 py-2 sm:px-4">
+        <div className="border-t border-white/10 bg-orange-700 px-3 py-2 sm:px-4">
           <div className="flex flex-wrap items-center gap-2">
             {openBlock ? (
               <>
@@ -211,15 +202,15 @@ export function LiveSession() {
                 <span className="font-semibold">
                   {openBlock.order}. {openBlock.name}
                 </span>
-                <span className="text-sm text-indigo-200 tabular-nums">
-                  {fmtElapsed(now - openBlock.startedAt)} · {blockTotals.get(openBlock.id!) ?? 0} saltos
+                <span className="text-sm text-orange-100 tabular-nums">
+                  {fmtElapsed(now - openBlock.startedAt)} · {jumpsLabel(blockTotals.get(openBlock.id!) ?? 0)}
                 </span>
                 <Button size="sm" variant="ghost" className="ml-auto text-white hover:bg-white/10" onClick={() => endOpenBlock(id)}>
                   <Square size={14} /> Terminar ejercicio
                 </Button>
               </>
             ) : (
-              <span className="text-sm text-indigo-200">
+              <span className="text-sm text-orange-100">
                 Sin ejercicio activo: elige uno para ver los saltos por ejercicio (los saltos se cuentan igual).
               </span>
             )}
@@ -233,7 +224,7 @@ export function LiveSession() {
                   onClick={() => begin(name)}
                   className={cx(
                     'shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold whitespace-nowrap',
-                    openBlock?.name === name ? 'bg-white text-indigo-900' : 'bg-white/10 text-white hover:bg-white/20',
+                    openBlock?.name === name ? 'bg-white text-orange-700' : 'bg-white/10 text-white hover:bg-white/20',
                   )}
                 >
                   {name}
@@ -269,26 +260,15 @@ export function LiveSession() {
       )}
 
       <main className="p-3 pb-24 sm:p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <Segmented
-            size="sm"
-            value={sort}
-            onChange={setSort}
-            options={[
-              { value: 'dorsal', label: 'Dorsal' },
-              { value: 'posicion', label: 'Posición' },
-              { value: 'nombre', label: 'Nombre' },
-            ]}
-          />
-          {blocks.length > 0 && (
-            <p className="truncate text-xs text-slate-500">
-              {blocks
-                .filter((b) => b.endedAt)
-                .map((b) => `${b.name} (${blockTotals.get(b.id!) ?? 0})`)
-                .join(' · ')}
-            </p>
-          )}
-        </div>
+        {blocks.some((b) => b.endedAt) && (
+          <p className="mb-3 truncate text-xs text-slate-500">
+            Hechos:{' '}
+            {blocks
+              .filter((b) => b.endedAt)
+              .map((b) => `${b.name} (${blockTotals.get(b.id!) ?? 0})`)
+              .join(' · ')}
+          </p>
+        )}
 
         {cards.length === 0 ? (
           <Card>
@@ -300,31 +280,43 @@ export function LiveSession() {
             </EmptyState>
           </Card>
         ) : (
-          <div
-            className={cx(
-              'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6',
-              finished && 'pointer-events-none opacity-60',
-            )}
-          >
-            {cards.map(({ player, attendance }) => {
-              const limit = attendance.jumpLimit ?? player.jumpLimit;
-              return (
-                <LiveCard
-                  key={player.id}
-                  player={player}
-                  attendance={attendance}
-                  blockJumps={data.blockCounts.get(player.id!) ?? 0}
-                  showBlock={!!openBlock}
-                  limit={limit}
-                  state={limitState(attendance.jumps, limit, settings.limitWarnPct)}
-                  flashKey={flashes[player.id!] ?? 0}
-                  hasComplaint={data.complainingIds.has(player.id!)}
-                  onTap={() => tap(player, limit)}
-                  onMinus={() => minus(player)}
-                  onComplaint={() => setComplaintPlayer(player)}
-                />
-              );
-            })}
+          <div className={cx('space-y-5', finished && 'pointer-events-none opacity-60')}>
+            {groups.map(({ position, items }) => (
+              <section key={position}>
+                <div className="mb-2">
+                  <PositionHeader
+                    position={position}
+                    count={items.length}
+                    action={
+                      <span className="text-sm font-semibold text-slate-500 tabular-nums">
+                        {jumpsLabel(items.reduce((a, c) => a + c.attendance.jumps, 0))}
+                      </span>
+                    }
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                  {items.map(({ player, attendance }) => {
+                    const limit = attendance.jumpLimit ?? player.jumpLimit;
+                    return (
+                      <LiveCard
+                        key={player.id}
+                        player={player}
+                        attendance={attendance}
+                        blockJumps={data.blockCounts.get(player.id!) ?? 0}
+                        showBlock={!!openBlock}
+                        limit={limit}
+                        state={limitState(attendance.jumps, limit, settings.limitWarnPct)}
+                        flashKey={flashes[player.id!] ?? 0}
+                        hasComplaint={data.complainingIds.has(player.id!)}
+                        onTap={() => tap(player, limit)}
+                        onMinus={() => minus(player)}
+                        onComplaint={() => setComplaintPlayer(player)}
+                      />
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
           </div>
         )}
       </main>
@@ -382,7 +374,7 @@ export function LiveSession() {
             const status: AttendanceStatus = att?.status ?? 'ausente';
             return (
               <li key={p.id} className="flex flex-wrap items-center gap-3 py-2.5">
-                <NumberBubble player={p} size="sm" />
+                <PositionBubble player={p} size="sm" />
                 <span className="min-w-[8rem] flex-1 font-semibold text-slate-800">{p.name}</span>
                 <Segmented
                   size="sm"

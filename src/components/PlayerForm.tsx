@@ -18,8 +18,7 @@ export function PlayerForm({
 }) {
   const toast = useToast();
   const [name, setName] = useState('');
-  const [number, setNumber] = useState('');
-  const [position, setPosition] = useState<Position>('Receptora');
+  const [position, setPosition] = useState<Position>('Punta receptora');
   const [status, setStatus] = useState<PlayerStatus>('activa');
   const [limit, setLimit] = useState('');
   const [notes, setNotes] = useState('');
@@ -27,8 +26,7 @@ export function PlayerForm({
   useEffect(() => {
     if (!open) return;
     setName(player?.name ?? '');
-    setNumber(player?.number != null ? String(player.number) : '');
-    setPosition(player?.position ?? 'Receptora');
+    setPosition(player?.position ?? 'Punta receptora');
     setStatus(player?.status ?? 'activa');
     setLimit(player?.jumpLimit != null ? String(player.jumpLimit) : '');
     setNotes(player?.notes ?? '');
@@ -40,7 +38,6 @@ export function PlayerForm({
       ...(player ?? { archived: 0, createdAt: Date.now() }),
       teamId: player?.teamId ?? teamId,
       name,
-      number: number === '' ? undefined : Number(number),
       position,
       status,
       jumpLimit: limit === '' ? undefined : Number(limit),
@@ -71,14 +68,11 @@ export function PlayerForm({
           void save();
         }}
       >
-        <div className="col-span-2 sm:col-span-1">
+        <div className="col-span-2">
           <Field label="Nombre">
             <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Nombre y apellido" />
           </Field>
         </div>
-        <Field label="Dorsal">
-          <Input type="number" inputMode="numeric" min={0} max={99} value={number} onChange={(e) => setNumber(e.target.value)} />
-        </Field>
         <Field label="Posición">
           <Select value={position} onChange={(e) => setPosition(e.target.value as Position)}>
             {POSITIONS.map((p) => (

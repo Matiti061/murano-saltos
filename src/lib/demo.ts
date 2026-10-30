@@ -15,19 +15,19 @@ function rng(seed: number) {
   };
 }
 
-const DEMO_PLAYERS: { name: string; number: number; position: Position; base: number }[] = [
-  { name: 'Lucía Martín', number: 1, position: 'Colocadora', base: 210 },
-  { name: 'Paula Gómez', number: 12, position: 'Colocadora', base: 180 },
-  { name: 'Marta Ruiz', number: 4, position: 'Opuesta', base: 140 },
-  { name: 'Irene Sanz', number: 15, position: 'Opuesta', base: 125 },
-  { name: 'Carla López', number: 7, position: 'Receptora', base: 115 },
-  { name: 'Sara Díaz', number: 9, position: 'Receptora', base: 110 },
-  { name: 'Nerea Torres', number: 10, position: 'Receptora', base: 105 },
-  { name: 'Alba Navarro', number: 14, position: 'Receptora', base: 100 },
-  { name: 'Elena Romero', number: 3, position: 'Central', base: 175 },
-  { name: 'Claudia Gil', number: 11, position: 'Central', base: 165 },
-  { name: 'Julia Moreno', number: 16, position: 'Central', base: 160 },
-  { name: 'Andrea Vega', number: 5, position: 'Líbero', base: 18 },
+const DEMO_PLAYERS: { name: string; position: Position; base: number }[] = [
+  { name: 'Lucía Martín', position: 'Armadora', base: 210 },
+  { name: 'Paula Gómez', position: 'Armadora', base: 180 },
+  { name: 'Marta Ruiz', position: 'Opuesta', base: 140 },
+  { name: 'Irene Sanz', position: 'Opuesta', base: 125 },
+  { name: 'Carla López', position: 'Punta receptora', base: 115 },
+  { name: 'Sara Díaz', position: 'Punta receptora', base: 110 },
+  { name: 'Nerea Torres', position: 'Punta receptora', base: 105 },
+  { name: 'Alba Navarro', position: 'Punta receptora', base: 100 },
+  { name: 'Elena Romero', position: 'Central', base: 175 },
+  { name: 'Claudia Gil', position: 'Central', base: 165 },
+  { name: 'Julia Moreno', position: 'Central', base: 160 },
+  { name: 'Andrea Vega', position: 'Líbero', base: 18 },
 ];
 
 const DEMO_BLOCKS: { name: string; min: number; share: number }[] = [
@@ -50,7 +50,6 @@ export async function seedDemo(): Promise<number> {
   const players: Player[] = DEMO_PLAYERS.map((p, i) => ({
     teamId,
     name: p.name,
-    number: p.number,
     position: p.position,
     status: i === 7 ? 'readaptacion' : 'activa',
     jumpLimit: i === 7 ? 70 : p.position === 'Central' ? 220 : undefined,

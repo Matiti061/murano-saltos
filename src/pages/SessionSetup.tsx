@@ -2,11 +2,11 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { ArrowLeft, ArrowRight, ClipboardList, Play, SkipForward, Users } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { NumberBubble, StatusBadge } from '../components/PlayerBits';
+import { PositionBubble, PositionHeader, StatusBadge } from '../components/PlayerBits';
 import { useToast } from '../components/Toast';
 import { Badge, Button, ButtonLink, Card, EmptyState, Input, PageHeader, Segmented } from '../components/ui';
 import { isWellnessComplete, WellnessForm } from '../components/WellnessForm';
-import { sortPlayers } from '../db/players';
+import { groupByPosition, sortPlayers } from '../db/players';
 import { db } from '../db/schema';
 import { createLiveSession, getActiveSession, isPresent } from '../db/sessions';
 import { ATTENDANCE_LABEL, type AttendanceStatus, type Player, type SessionType, type Wellness } from '../db/types';
@@ -109,14 +109,14 @@ export function SessionSetup() {
           <Button variant="ghost" onClick={() => setStep('asistencia')}>
             <ArrowLeft size={18} /> Asistencia
           </Button>
-          <Badge tone="indigo">
+          <Badge tone="brand">
             {wIndex + 1} de {present.length} · {done} completados
           </Badge>
         </div>
         <Card className="p-5 sm:p-8">
-          <p className="text-sm font-semibold text-indigo-700">Wellness antes de entrenar</p>
+          <p className="text-sm font-semibold text-orange-700">Wellness antes de entrenar</p>
           <div className="mt-2 mb-6 flex items-center gap-3">
-            <NumberBubble player={p} size="lg" />
+            <PositionBubble player={p} size="lg" />
             <div>
               <h1 className="text-2xl font-bold text-slate-900">{p.name}</h1>
               <p className="text-slate-500">¿Cómo llegas hoy?</p>
@@ -147,7 +147,7 @@ export function SessionSetup() {
         </Card>
         <p className="mt-4 text-center text-sm text-slate-500">
           Puedes pasar la tablet a cada jugadora. Las que no respondan se quedan sin wellness.{' '}
-          <button type="button" className="font-semibold text-indigo-700 underline" onClick={start}>
+          <button type="button" className="font-semibold text-orange-700 underline" onClick={start}>
             Empezar ya
           </button>
         </p>
@@ -175,7 +175,6 @@ export function SessionSetup() {
           onChange={setType}
           options={[
             { value: 'entrenamiento', label: 'Entrenamiento' },
-            { value: 'partido', label: 'Partido' },
             { value: 'fisico', label: 'Físico' },
           ]}
         />
@@ -197,39 +196,45 @@ export function SessionSetup() {
             Todas presentes
           </Button>
         </div>
-        <ul className="divide-y divide-slate-100">
-          {players.map((p) => {
-            const r = rows[p.id!];
-            if (!r) return null;
-            return (
-              <li key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                <NumberBubble player={p} />
-                <div className="min-w-[8rem] flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="font-semibold text-slate-900">{p.name}</span>
-                    <StatusBadge status={p.status} />
-                  </div>
-                  <p className="text-xs text-slate-500">{p.position}</p>
-                </div>
-                <Segmented size="sm" value={r.status} onChange={(s) => update(p.id!, { status: s })} options={STATUS_OPTIONS} />
-                {isPresent(r.status) && (
-                  <label className="flex items-center gap-1.5 text-xs text-slate-500">
-                    Límite hoy
-                    <Input
-                      type="number"
-                      inputMode="numeric"
-                      min={0}
-                      className="h-9 w-20 text-sm"
-                      placeholder={p.jumpLimit ? String(p.jumpLimit) : '–'}
-                      value={r.limit}
-                      onChange={(e) => update(p.id!, { limit: e.target.value })}
-                    />
-                  </label>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        {groupByPosition(players, (p) => p).map(({ position, items }) => (
+          <section key={position}>
+            <div className="border-b border-slate-100 bg-slate-50 px-4 py-2">
+              <PositionHeader position={position} count={items.length} />
+            </div>
+            <ul className="divide-y divide-slate-100">
+              {items.map((p) => {
+                const r = rows[p.id!];
+                if (!r) return null;
+                return (
+                  <li key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                    <PositionBubble player={p} />
+                    <div className="min-w-[8rem] flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-semibold text-slate-900">{p.name}</span>
+                        <StatusBadge status={p.status} />
+                      </div>
+                    </div>
+                    <Segmented size="sm" value={r.status} onChange={(s) => update(p.id!, { status: s })} options={STATUS_OPTIONS} />
+                    {isPresent(r.status) && (
+                      <label className="flex items-center gap-1.5 text-xs whitespace-nowrap text-slate-500">
+                        Límite hoy
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          className="h-9 w-20 text-sm"
+                          placeholder={p.jumpLimit ? String(p.jumpLimit) : '–'}
+                          value={r.limit}
+                          onChange={(e) => update(p.id!, { limit: e.target.value })}
+                        />
+                      </label>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ))}
       </Card>
 
       <div className="fixed inset-x-0 bottom-[60px] z-20 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur md:bottom-0 md:left-60">

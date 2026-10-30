@@ -10,7 +10,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.png', 'apple-touch-icon.png', 'logo.jpg'],
       manifest: {
         name: 'Murano · Control de saltos',
         short_name: 'Saltos',
@@ -20,8 +20,8 @@ export default defineConfig({
         scope: './',
         display: 'standalone',
         orientation: 'any',
-        theme_color: '#312e81',
-        background_color: '#f8fafc',
+        theme_color: '#ea580c',
+        background_color: '#ffffff',
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
@@ -29,7 +29,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,jpg,woff2}'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
       },
     }),

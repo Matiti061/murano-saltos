@@ -22,7 +22,6 @@ export function sessionCsv(data: SessionReportData): string {
   const head: CsvCell[] = [
     'Fecha',
     'Equipo',
-    'Dorsal',
     'Jugadora',
     'Posición',
     'Asistencia',
@@ -49,7 +48,6 @@ export function sessionCsv(data: SessionReportData): string {
     return [
       data.session.date,
       data.team?.name,
-      r.player.number,
       r.player.name,
       r.player.position,
       ATTENDANCE_LABEL[r.attendance.status],
@@ -75,7 +73,6 @@ export function sessionCsv(data: SessionReportData): string {
   const absent: CsvCell[][] = data.absent.map((a) => [
     data.session.date,
     data.team?.name,
-    a.player.number,
     a.player.name,
     a.player.position,
     ATTENDANCE_LABEL[a.status],

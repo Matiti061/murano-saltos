@@ -5,7 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AcwrBadge } from '../components/AcwrBadge';
 import { AcwrChart, ChartCard, ColumnChart, TrendLineChart, VIZ } from '../components/charts';
 import { ComplaintForm } from '../components/ComplaintForm';
-import { NumberBubble, StatusBadge } from '../components/PlayerBits';
+import { PositionBubble, StatusBadge } from '../components/PlayerBits';
 import { PlayerForm } from '../components/PlayerForm';
 import { useToast } from '../components/Toast';
 import { Badge, Button, Card, CardHeader, Disclaimer, EmptyState, StatTile } from '../components/ui';
@@ -71,7 +71,7 @@ export function PlayerDetail() {
     return (
       <Card>
         <EmptyState title="Jugadora no encontrada">
-          <Link className="text-indigo-700 underline" to="/jugadoras">
+          <Link className="text-orange-700 underline" to="/jugadoras">
             Volver a jugadoras
           </Link>
         </EmptyState>
@@ -96,7 +96,7 @@ export function PlayerDetail() {
 
       <Card className="mb-5 p-5">
         <div className="flex flex-wrap items-center gap-4">
-          <NumberBubble player={player} size="lg" />
+          <PositionBubble player={player} size="lg" />
           <div className="min-w-[14rem] flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold text-slate-900">{player.name}</h1>
@@ -254,7 +254,7 @@ export function PlayerDetail() {
               {[...(rows ?? [])].reverse().map(({ session, attendance: a }) => (
                 <tr key={a.id} className="hover:bg-slate-50">
                   <td className="px-4 py-2">
-                    <Link className="font-semibold text-indigo-700 hover:underline" to={`/entreno/${session.id}`}>
+                    <Link className="font-semibold text-orange-700 hover:underline" to={`/entreno/${session.id}`}>
                       {fmtDate(session.date)}
                     </Link>
                   </td>

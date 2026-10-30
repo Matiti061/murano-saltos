@@ -15,10 +15,10 @@ import {
 import { fmtNum } from '../lib/format';
 import type { AcwrThresholds } from '../lib/metrics';
 
-/** Colores de la paleta validada (serie 1/2) y de estado. */
+/** Paleta validada: serie 1 = naranjo (saltos, color del club), serie 2 = azul (carga interna y líneas sobre zonas de riesgo). */
 export const VIZ = {
-  series1: '#2a78d6',
-  series2: '#eb6834',
+  series1: '#eb6834',
+  series2: '#2a78d6',
   grid: '#e8e8e4',
   axis: '#52514e',
   muted: '#8a8984',
@@ -100,11 +100,11 @@ export function ColumnChart({
         <CartesianGrid vertical={false} stroke={VIZ.grid} />
         <XAxis dataKey="label" {...axisProps} interval="preserveStartEnd" minTickGap={8} />
         <YAxis {...axisProps} allowDecimals={false} width={44} />
-        <Tooltip cursor={{ fill: 'rgba(42,120,214,0.08)' }} content={(p) => <ChartTooltip active={p.active} payload={p.payload} unit={unit} decimals={decimals} />} />
+        <Tooltip cursor={{ fill: 'rgba(235,104,52,0.1)' }} content={(p) => <ChartTooltip active={p.active} payload={p.payload} unit={unit} decimals={decimals} />} />
         {limit ? (
           <ReferenceLine
             y={limit}
-            stroke={VIZ.critical}
+            stroke="#334155"
             strokeWidth={1.5}
             label={{ value: `Límite ${limit}`, position: 'insideTopRight', fill: VIZ.axis, fontSize: 11 }}
           />
@@ -124,7 +124,7 @@ export function HBarChart({ data, unit, color = VIZ.series1 }: { data: ChartDatu
         <CartesianGrid horizontal={false} stroke={VIZ.grid} />
         <XAxis type="number" {...axisProps} allowDecimals={false} />
         <YAxis type="category" dataKey="label" {...axisProps} width={110} interval={0} />
-        <Tooltip cursor={{ fill: 'rgba(42,120,214,0.08)' }} content={(p) => <ChartTooltip active={p.active} payload={p.payload} unit={unit} />} />
+        <Tooltip cursor={{ fill: 'rgba(235,104,52,0.1)' }} content={(p) => <ChartTooltip active={p.active} payload={p.payload} unit={unit} />} />
         <Bar
           dataKey="value"
           fill={color}
@@ -196,9 +196,9 @@ export function AcwrChart({ data, th, height = 220 }: { data: ChartDatum[]; th: 
           <Tooltip cursor={{ stroke: VIZ.muted, strokeWidth: 1 }} content={(p) => <ChartTooltip active={p.active} payload={p.payload} unit="" decimals={2} />} />
           <Line
             dataKey="value"
-            stroke={VIZ.series1}
+            stroke={VIZ.series2}
             strokeWidth={2}
-            dot={{ r: 4, fill: VIZ.series1, stroke: '#fff', strokeWidth: 2 }}
+            dot={{ r: 4, fill: VIZ.series2, stroke: '#fff', strokeWidth: 2 }}
             activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }}
             connectNulls
             isAnimationActive={false}

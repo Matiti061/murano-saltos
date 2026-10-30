@@ -20,11 +20,14 @@ export function TeamSelector({ className }: { className?: string }) {
     <select
       value={teamId ?? ''}
       onChange={(e) => setTeamId(Number(e.target.value))}
-      className={cx('h-9 rounded-lg border border-white/20 bg-white/10 px-2 text-sm font-semibold text-white outline-none', className)}
+      className={cx(
+        'h-9 rounded-lg border border-orange-200 bg-orange-50 px-2 text-sm font-semibold text-orange-900 outline-none focus:ring-2 focus:ring-orange-300',
+        className,
+      )}
       aria-label="Equipo"
     >
       {teams.map((t) => (
-        <option key={t.id} value={t.id} className="text-slate-900">
+        <option key={t.id} value={t.id}>
           {t.name}
         </option>
       ))}
@@ -39,17 +42,16 @@ export function Layout() {
   return (
     <div className="min-h-screen md:flex">
       {/* Menú lateral en tablet / escritorio */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-indigo-950 text-indigo-100 md:flex">
-        <div className="flex items-center gap-3 px-5 py-5">
-          <img src="./icon.svg" alt="" className="h-10 w-10 rounded-xl" />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-white">{settings.clubName}</p>
-            <p className="text-xs text-indigo-300">Control de saltos</p>
-          </div>
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
+        <div className="h-1.5 bg-orange-500" />
+        <div className="flex flex-col items-center px-5 pt-5 pb-4 text-center">
+          <img src="./logo.jpg" alt="Logo del club" className="h-24 w-24 object-contain" />
+          <p className="mt-1 text-sm font-bold text-slate-900">{settings.clubName}</p>
+          <p className="text-xs font-semibold text-orange-600">Control de saltos</p>
         </div>
         <div className="px-4 pb-3">
           <TeamSelector className="w-full" />
-          {teams && teams.length === 1 && <p className="px-1 text-sm font-semibold text-indigo-200">{team?.name}</p>}
+          {teams && teams.length === 1 && <p className="text-center text-sm font-semibold text-slate-600">{team?.name}</p>}
         </div>
         <nav className="flex flex-1 flex-col gap-1 px-3">
           {NAV.map(({ to, label, icon: Icon, end }) => (
@@ -60,7 +62,7 @@ export function Layout() {
               className={({ isActive }) =>
                 cx(
                   'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors',
-                  isActive ? 'bg-white/15 text-white' : 'text-indigo-200 hover:bg-white/10 hover:text-white',
+                  isActive ? 'bg-orange-500 text-white shadow-sm' : 'text-slate-600 hover:bg-orange-50 hover:text-orange-700',
                 )
               }
             >
@@ -73,10 +75,10 @@ export function Layout() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Cabecera en móvil */}
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 bg-indigo-950 px-4 py-3 text-white md:hidden">
+        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b-4 border-orange-500 bg-white px-4 py-2 md:hidden">
           <div className="flex min-w-0 items-center gap-2">
-            <img src="./icon.svg" alt="" className="h-8 w-8 rounded-lg" />
-            <p className="truncate text-sm font-bold">{settings.clubName}</p>
+            <img src="./logo.jpg" alt="" className="h-10 w-10 object-contain" />
+            <p className="truncate text-sm font-bold text-slate-900">{settings.clubName}</p>
           </div>
           <TeamSelector className="max-w-[45vw]" />
         </header>
@@ -95,7 +97,7 @@ export function Layout() {
               to={to}
               end={end}
               className={({ isActive }) =>
-                cx('flex flex-col items-center gap-0.5 py-2 text-[11px] font-semibold', isActive ? 'text-indigo-700' : 'text-slate-500')
+                cx('flex flex-col items-center gap-0.5 py-2 text-[11px] font-semibold', isActive ? 'text-orange-600' : 'text-slate-500')
               }
             >
               <Icon size={22} />

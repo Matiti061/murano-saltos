@@ -3,7 +3,7 @@ import { AlertTriangle, ChevronRight, DatabaseBackup, HeartPulse, Play, Plus, Sh
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AcwrBadge } from '../components/AcwrBadge';
-import { NumberBubble } from '../components/PlayerBits';
+import { PositionBubble } from '../components/PlayerBits';
 import { useToast } from '../components/Toast';
 import { Badge, Button, ButtonLink, Card, CardHeader, Disclaimer, Input, StatTile } from '../components/ui';
 import { complaintLabel } from '../db/complaints';
@@ -30,7 +30,7 @@ export function NoTeam() {
   return (
     <div className="mx-auto max-w-xl py-8">
       <Card className="p-6 sm:p-8">
-        <img src="./icon.svg" alt="" className="mb-4 h-14 w-14 rounded-2xl" />
+        <img src="./logo.jpg" alt="Logo del club" className="mx-auto mb-4 h-28 w-28 object-contain" />
         <h1 className="text-2xl font-bold text-slate-900">Control de saltos</h1>
         <p className="mt-2 text-slate-600">
           Cuenta los saltos de cada jugadora en los entrenamientos, guarda el histórico y detecta picos de carga para
@@ -154,7 +154,7 @@ export function Dashboard() {
   return (
     <>
       {team.demo && (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900">
           <span>
             <Sparkles size={16} className="mr-1 inline" /> Estás viendo el <b>equipo de ejemplo</b>. Puedes borrarlo en Ajustes cuando quieras.
           </span>
@@ -166,7 +166,7 @@ export function Dashboard() {
 
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-indigo-700">{capitalize(fmtDateLong(todayISO()))}</p>
+          <p className="text-sm font-semibold text-orange-700">{capitalize(fmtDateLong(todayISO()))}</p>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">{team.name}</h1>
         </div>
         {active ? (
@@ -228,7 +228,7 @@ export function Dashboard() {
               {alerts.map((a) => (
                 <li key={a.key}>
                   <Link to={`/jugadoras/${a.summary.player.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
-                    <NumberBubble player={a.summary.player} size="sm" />
+                    <PositionBubble player={a.summary.player} size="sm" />
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-slate-900">{a.summary.player.name}</p>
                       <p className="text-sm text-slate-600">{a.text}</p>
@@ -251,7 +251,7 @@ export function Dashboard() {
           <CardHeader
             title="Últimas sesiones"
             action={
-              <Link to="/historial" className="text-sm font-semibold text-indigo-700">
+              <Link to="/historial" className="text-sm font-semibold text-orange-700">
                 Ver todas
               </Link>
             }

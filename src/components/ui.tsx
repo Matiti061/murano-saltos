@@ -9,7 +9,7 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 type Size = 'sm' | 'md' | 'lg';
 
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-indigo-700 text-white hover:bg-indigo-800 active:bg-indigo-900 shadow-sm',
+  primary: 'bg-orange-600 text-white hover:bg-orange-700 active:bg-orange-800 shadow-sm',
   secondary: 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 active:bg-slate-100 shadow-sm',
   ghost: 'text-slate-600 hover:bg-slate-100 active:bg-slate-200',
   danger: 'bg-red-600 text-white hover:bg-red-700 active:bg-red-800 shadow-sm',
@@ -80,7 +80,7 @@ export function PageHeader({ title, subtitle, actions }: { title: ReactNode; sub
 
 const BADGE_TONES = {
   slate: 'bg-slate-100 text-slate-700',
-  indigo: 'bg-indigo-100 text-indigo-800',
+  brand: 'bg-orange-100 text-orange-800',
   green: 'bg-emerald-100 text-emerald-800',
   amber: 'bg-amber-100 text-amber-800',
   red: 'bg-red-100 text-red-800',
@@ -107,18 +107,24 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
 }
 
 const inputBase =
-  'w-full rounded-xl border border-slate-300 bg-white px-3 text-slate-900 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:bg-slate-100';
+  'rounded-xl border border-slate-300 bg-white px-3 text-slate-900 shadow-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 disabled:bg-slate-100';
+
+/** Ancho y alto por defecto solo si `className` no los fija (si no, el CSS decide cuál gana). */
+function fieldClass(className: string | undefined, height: string | false) {
+  const has = (prefix: string) => new RegExp(`(^|\\s)${prefix}-`).test(className ?? '');
+  return cx(inputBase, !has('w') && 'w-full', height && !has('h') && height, className);
+}
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cx(inputBase, 'h-11', className)} {...props} />;
+  return <input className={fieldClass(className, 'h-11')} {...props} />;
 }
 
 export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cx(inputBase, 'h-11', className)} {...props} />;
+  return <select className={fieldClass(className, 'h-11')} {...props} />;
 }
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={cx(inputBase, 'py-2', className)} {...props} />;
+  return <textarea className={fieldClass(className, false) + ' py-2'} {...props} />;
 }
 
 export function EmptyState({ icon, title, children }: { icon?: ReactNode; title: string; children?: ReactNode }) {

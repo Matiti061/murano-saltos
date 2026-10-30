@@ -5,7 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AcwrBadge } from '../components/AcwrBadge';
 import { ComplaintForm } from '../components/ComplaintForm';
 import { Modal } from '../components/Modal';
-import { NumberBubble } from '../components/PlayerBits';
+import { PositionBubble } from '../components/PlayerBits';
 import { rpeColor } from '../components/RpeSelector';
 import { useToast } from '../components/Toast';
 import { Badge, Button, ButtonLink, Card, CardHeader, cx, Disclaimer, EmptyState, Field, Input, PageHeader, Select, StatTile, Textarea } from '../components/ui';
@@ -15,6 +15,7 @@ import { loadSessionReport } from '../db/reportLoader';
 import { db } from '../db/schema';
 import { deleteSessionsCascade, reopenSession, updateAttendance } from '../db/sessions';
 import { ATTENDANCE_LABEL, SESSION_TYPE_LABEL, type Attendance, type AttendanceStatus, type Player, type Wellness } from '../db/types';
+import { loadClubLogo } from '../lib/clubLogo';
 import { sessionCsv } from '../lib/csv';
 import { canShareFiles, downloadBlob, downloadText, shareFile } from '../lib/download';
 import { capitalize, fmtDateLong, fmtNum, fmtTime, slug } from '../lib/format';
@@ -24,7 +25,7 @@ const LIMIT_TEXT = { none: '', ok: 'text-emerald-700', warn: 'text-amber-700 fon
 
 async function buildPdfBlob(data: SessionReportData) {
   const { createSessionPdf, sessionPdfFilename } = await import('../lib/pdf/sessionReport');
-  const doc = createSessionPdf(data);
+  const doc = createSessionPdf(data, data.settings.logoDataUrl ? undefined : await loadClubLogo());
   return { blob: doc.output('blob'), filename: sessionPdfFilename(data) };
 }
 
@@ -44,7 +45,7 @@ export function SessionReport() {
     return (
       <Card>
         <EmptyState title="Sesión no encontrada">
-          <Link to="/historial" className="text-indigo-700 underline">
+          <Link to="/historial" className="text-orange-700 underline">
             Ir al historial
           </Link>
         </EmptyState>
@@ -206,7 +207,7 @@ export function SessionReport() {
                 <tr key={r.attendance.id} className="hover:bg-slate-50">
                   <td className="px-3 py-2">
                     <Link to={`/jugadoras/${r.player.id}`} className="flex items-center gap-2">
-                      <NumberBubble player={r.player} size="sm" />
+                      <PositionBubble player={r.player} size="sm" />
                       <span className="font-semibold text-slate-900">{r.player.name}</span>
                       {r.attendance.status === 'parcial' && <Badge tone="blue">Parcial</Badge>}
                     </Link>
@@ -272,7 +273,7 @@ export function SessionReport() {
                       {r.wellnessTotal != null ? (
                         <Badge tone={r.wellnessLow.length || r.wellnessDrop ? 'amber' : 'slate'}>{r.wellnessTotal}/20</Badge>
                       ) : editing ? (
-                        <span className="text-indigo-700">Añadir</span>
+                        <span className="text-orange-700">Añadir</span>
                       ) : (
                         '–'
                       )}
@@ -365,7 +366,7 @@ export function SessionReport() {
             <ul className="divide-y divide-slate-100">
               {data.absent.map(({ player, status }) => (
                 <li key={player.id} className="flex items-center gap-2 px-4 py-2 text-sm">
-                  <NumberBubble player={player} size="sm" />
+                  <PositionBubble player={player} size="sm" />
                   <span className="flex-1 font-semibold text-slate-800">{player.name}</span>
                   {editing ? <AbsentSelect sessionId={id} playerId={player.id!} status={status} /> : <Badge>{ATTENDANCE_LABEL[status]}</Badge>}
                 </li>

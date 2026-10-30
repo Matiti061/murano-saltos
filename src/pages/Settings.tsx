@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ArrowDown, ArrowUp, DatabaseBackup, FileSpreadsheet, ImagePlus, Plus, ShieldCheck, Sparkles, Trash2, Upload } from 'lucide-react';
+import { ArrowDown, ArrowUp, DatabaseBackup, FileSpreadsheet, Plus, ShieldCheck, Sparkles, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Modal } from '../components/Modal';
 import { useToast } from '../components/Toast';
@@ -10,6 +10,7 @@ import { updateSettings, useSettings } from '../db/settings';
 import { useActiveTeam } from '../hooks/useActiveTeam';
 import { exportBackup, exportComplaintsCsv, exportLoadsCsv, parseBackup, restoreBackup, type BackupSummary } from '../lib/backup';
 import { clearDemo, hasDemoData, seedDemo } from '../lib/demo';
+import { CLUB_LOGO_URL } from '../lib/clubLogo';
 import { fmtNum } from '../lib/format';
 
 /** Reduce el logo para que el PDF y la base de datos no pesen de más. */
@@ -82,18 +83,16 @@ export function SettingsPage() {
               />
             </Field>
             <div>
-              <p className="mb-1 text-sm font-medium text-slate-700">Escudo / logo</p>
+              <p className="mb-1 text-sm font-medium text-slate-700">Escudo / logo {settings.logoDataUrl ? '' : '(el del club, por defecto)'}</p>
               <div className="flex items-center gap-3">
-                {settings.logoDataUrl ? (
-                  <img src={settings.logoDataUrl} alt="Logo del club" className="h-16 w-16 rounded-xl border border-slate-200 object-contain p-1" />
-                ) : (
-                  <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-dashed border-slate-300 text-slate-400">
-                    <ImagePlus />
-                  </div>
-                )}
+                <img
+                  src={settings.logoDataUrl ?? CLUB_LOGO_URL}
+                  alt="Logo del club"
+                  className="h-16 w-16 rounded-xl border border-slate-200 object-contain p-1"
+                />
                 <label className="cursor-pointer">
                   <span className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
-                    <Upload size={16} /> Subir imagen
+                    <Upload size={16} /> Usar otra imagen
                   </span>
                   <input
                     type="file"
@@ -114,7 +113,7 @@ export function SettingsPage() {
                 </label>
                 {settings.logoDataUrl && (
                   <Button size="sm" variant="ghost" onClick={() => updateSettings({ logoDataUrl: undefined })}>
-                    Quitar
+                    Volver al logo del club
                   </Button>
                 )}
               </div>
@@ -127,7 +126,7 @@ export function SettingsPage() {
             {teams?.map((t) => (
               <li key={t.id} className="flex items-center gap-2">
                 <Input key={t.name} defaultValue={t.name} className="h-10" onBlur={(e) => e.target.value.trim() && renameTeam(t.id!, e.target.value)} />
-                {t.demo && <Badge tone="indigo">Ejemplo</Badge>}
+                {t.demo && <Badge tone="brand">Ejemplo</Badge>}
                 <Button
                   size="sm"
                   variant="ghost"

@@ -1,7 +1,7 @@
 import { HeartPulse, Minus } from 'lucide-react';
 import type { Attendance, Player } from '../db/types';
 import type { LimitState } from '../lib/metrics';
-import { NumberBubble } from './PlayerBits';
+import { PositionBubble } from './PlayerBits';
 import { cx } from './ui';
 
 const STATE_STYLES: Record<LimitState, string> = {
@@ -12,7 +12,7 @@ const STATE_STYLES: Record<LimitState, string> = {
 };
 
 const BAR_STYLES: Record<LimitState, string> = {
-  none: 'bg-indigo-500',
+  none: 'bg-orange-500',
   ok: 'bg-emerald-500',
   warn: 'bg-amber-500',
   over: 'bg-red-600',
@@ -57,19 +57,16 @@ export function LiveCard({
         }
       }}
       className={cx(
-        'no-select relative flex min-h-[150px] cursor-pointer flex-col rounded-2xl border-2 p-3 shadow-sm transition-colors outline-none focus-visible:ring-4 focus-visible:ring-indigo-300 active:bg-indigo-50',
+        'no-select relative flex min-h-[150px] cursor-pointer flex-col rounded-2xl border-2 p-3 shadow-sm transition-colors outline-none focus-visible:ring-4 focus-visible:ring-orange-300 active:bg-orange-50',
         STATE_STYLES[state],
       )}
     >
       {flashKey > 0 && <span key={flashKey} className="tap-flash pointer-events-none absolute inset-0 rounded-2xl" />}
       <div className="flex items-start gap-2">
-        <NumberBubble player={player} size="sm" />
+        <PositionBubble player={player} size="sm" />
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 text-sm leading-tight font-bold break-words text-slate-900 sm:text-base">{player.name}</p>
-          <p className="truncate text-xs text-slate-500">
-            {player.position}
-            {attendance.status === 'parcial' ? ' · parcial' : ''}
-          </p>
+          {attendance.status === 'parcial' && <p className="text-xs font-semibold text-sky-700">Parcial</p>}
         </div>
         <button
           type="button"
@@ -95,7 +92,7 @@ export function LiveCard({
 
       <div className="flex items-end justify-between gap-2">
         <div className="min-w-0 flex-1 text-xs text-slate-500">
-          {showBlock && <p className="font-semibold text-indigo-700 tabular-nums">Ejercicio: {blockJumps}</p>}
+          {showBlock && <p className="font-semibold text-orange-700 tabular-nums">Ejercicio: {blockJumps}</p>}
           {limit ? (
             <>
               <p className="tabular-nums">

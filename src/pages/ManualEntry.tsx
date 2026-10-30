@@ -2,13 +2,13 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { ArrowLeft, Save } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { NumberBubble } from '../components/PlayerBits';
+import { PositionBubble } from '../components/PlayerBits';
 import { useToast } from '../components/Toast';
 import { Button, Card, Field, Input, PageHeader, Segmented, Select, Textarea } from '../components/ui';
 import { sortPlayers } from '../db/players';
 import { db } from '../db/schema';
 import { createManualSession, isPresent } from '../db/sessions';
-import { ATTENDANCE_LABEL, SESSION_TYPE_LABEL, type AttendanceStatus, type Player, type SessionType } from '../db/types';
+import { ATTENDANCE_LABEL, SELECTABLE_SESSION_TYPES, SESSION_TYPE_LABEL, type AttendanceStatus, type Player, type SessionType } from '../db/types';
 import { useActiveTeam } from '../hooks/useActiveTeam';
 import { todayISO } from '../lib/format';
 import { NoTeam } from './Dashboard';
@@ -93,9 +93,9 @@ export function ManualEntry() {
         </Field>
         <Field label="Tipo">
           <Select value={type} onChange={(e) => setType(e.target.value as SessionType)}>
-            {Object.entries(SESSION_TYPE_LABEL).map(([k, v]) => (
+            {SELECTABLE_SESSION_TYPES.map((k) => (
               <option key={k} value={k}>
-                {v}
+                {SESSION_TYPE_LABEL[k]}
               </option>
             ))}
           </Select>
@@ -118,7 +118,7 @@ export function ManualEntry() {
             const present = isPresent(r.status);
             return (
               <li key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                <NumberBubble player={p} size="sm" />
+                <PositionBubble player={p} size="sm" />
                 <span className="min-w-[8rem] flex-1 font-semibold text-slate-900">{p.name}</span>
                 <Segmented
                   size="sm"

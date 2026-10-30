@@ -1,15 +1,16 @@
 import { complaintLabel } from '../db/complaints';
 import { isPresent } from '../db/sessions';
-import type {
-  Attendance,
-  AttendanceStatus,
-  Block,
-  Complaint,
-  JumpEvent,
-  Player,
-  Session,
-  Settings,
-  Team,
+import {
+  comparePlayers,
+  type Attendance,
+  type AttendanceStatus,
+  type Block,
+  type Complaint,
+  type JumpEvent,
+  type Player,
+  type Session,
+  type Settings,
+  type Team,
 } from '../db/types';
 import {
   computeAcwr,
@@ -91,7 +92,7 @@ export interface SessionReportData {
   alerts: ReportAlert[];
 }
 
-export const playerLabel = (p: Player) => (p.number != null ? `${p.name} (#${p.number})` : p.name);
+export const playerLabel = (p: Player) => p.name;
 
 export function buildReport(raw: ReportRaw): SessionReportData {
   const { session, settings } = raw;
@@ -138,10 +139,9 @@ export function buildReport(raw: ReportRaw): SessionReportData {
       acwrSrpe: computeAcwr(points, session.date, 'srpe', settings),
     });
   }
-  const byNumber = (a: { player: Player }, b: { player: Player }) =>
-    (a.player.number ?? 999) - (b.player.number ?? 999) || a.player.name.localeCompare(b.player.name, 'es');
-  rows.sort(byNumber);
-  absent.sort(byNumber);
+  const byPosition = (a: { player: Player }, b: { player: Player }) => comparePlayers(a.player, b.player);
+  rows.sort(byPosition);
+  absent.sort(byPosition);
 
   const blockJumps = new Map<number, number>();
   for (const e of raw.events) {

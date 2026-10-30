@@ -5,9 +5,9 @@ import { createSessionPdf, sessionPdfFilename } from '../lib/pdf/sessionReport';
 import { buildReport, type ReportRaw } from '../lib/report';
 
 const players: Player[] = [
-  { id: 1, teamId: 1, name: 'Lucía Martín', number: 1, position: 'Colocadora', status: 'activa', archived: 0, createdAt: 0 },
-  { id: 2, teamId: 1, name: 'Nerea Torres', number: 10, position: 'Receptora', status: 'readaptacion', jumpLimit: 3, archived: 0, createdAt: 0 },
-  { id: 3, teamId: 1, name: 'Andrea Vega', number: 5, position: 'Líbero', status: 'activa', archived: 0, createdAt: 0 },
+  { id: 1, teamId: 1, name: 'Lucía Martín', position: 'Armadora', status: 'activa', archived: 0, createdAt: 0 },
+  { id: 2, teamId: 1, name: 'Nerea Torres', position: 'Punta receptora', status: 'readaptacion', jumpLimit: 3, archived: 0, createdAt: 0 },
+  { id: 3, teamId: 1, name: 'Andrea Vega', position: 'Líbero', status: 'activa', archived: 0, createdAt: 0 },
 ];
 
 const start = new Date('2026-10-28T18:00:00').getTime();
@@ -61,12 +61,12 @@ const raw: ReportRaw = {
 describe('buildReport', () => {
   const data = buildReport(raw);
 
-  it('separa presentes y ausentes y ordena por dorsal', () => {
+  it('separa presentes y ausentes y ordena por posición', () => {
     expect(data.rows.map((r) => r.player.name)).toEqual(['Lucía Martín', 'Nerea Torres']);
     expect(data.absent.map((a) => a.player.name)).toEqual(['Andrea Vega']);
     expect(data.totals).toMatchObject({ jumps: 11, present: 2, convened: 3 });
     expect(data.totals.avg).toBeCloseTo(5.5);
-    expect(data.totals.max).toEqual({ name: 'Lucía Martín (#1)', jumps: 8 });
+    expect(data.totals.max).toEqual({ name: 'Lucía Martín', jumps: 8 });
   });
 
   it('reparte los saltos por ejercicio', () => {
@@ -85,9 +85,9 @@ describe('buildReport', () => {
   it('genera alertas de límite, wellness, readaptación y molestias', () => {
     const texts = data.alerts.map((a) => a.text).join('\n');
     expect(data.rows[1].limitState).toBe('over');
-    expect(texts).toContain('Nerea Torres (#10) ha alcanzado su límite de saltos: 3/3 (100%)');
-    expect(texts).toContain('Lucía Martín (#1): wellness bajo en sueño');
-    expect(texts).toContain('Nerea Torres (#10) está en readaptación');
+    expect(texts).toContain('Nerea Torres ha alcanzado su límite de saltos: 3/3 (100%)');
+    expect(texts).toContain('Lucía Martín: wellness bajo en sueño');
+    expect(texts).toContain('Nerea Torres está en readaptación');
     expect(texts).toContain('molestia en rodilla derecha (4/10)');
     expect(data.alerts[0].level).toBe('alta');
   });
@@ -110,7 +110,7 @@ describe('PDF y CSV de la sesión', () => {
     const lines = sessionCsv(data).slice(1).split('\r\n');
     expect(lines[0]).toContain('Jugadora;Posición;Asistencia;Saltos');
     expect(lines[0]).toContain('1. Calentamiento;2. Bloqueo;Sin ejercicio / ajuste');
-    expect(lines[1]).toContain('Lucía Martín;Colocadora;Presente;8');
+    expect(lines[1]).toContain('Lucía Martín;Armadora;Presente;8');
     expect(lines[3]).toContain('Andrea Vega;Líbero;Ausente');
   });
 });

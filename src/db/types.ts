@@ -1,5 +1,45 @@
-export type Position = 'Colocadora' | 'Opuesta' | 'Receptora' | 'Central' | 'Líbero';
-export const POSITIONS: Position[] = ['Colocadora', 'Opuesta', 'Receptora', 'Central', 'Líbero'];
+export type Position = 'Armadora' | 'Punta receptora' | 'Opuesta' | 'Central' | 'Líbero';
+/** Orden en el que se muestran las jugadoras en toda la app. */
+export const POSITIONS: Position[] = ['Armadora', 'Punta receptora', 'Opuesta', 'Central', 'Líbero'];
+
+export const POSITION_PLURAL: Record<Position, string> = {
+  Armadora: 'Armadoras',
+  'Punta receptora': 'Puntas receptoras',
+  Opuesta: 'Opuestas',
+  Central: 'Centrales',
+  Líbero: 'Líberos',
+};
+
+export const POSITION_SHORT: Record<Position, string> = {
+  Armadora: 'AR',
+  'Punta receptora': 'PR',
+  Opuesta: 'OP',
+  Central: 'CE',
+  Líbero: 'LI',
+};
+
+/** Nombres de posición de versiones anteriores de la app. */
+const LEGACY_POSITIONS: Record<string, Position> = {
+  Colocadora: 'Armadora',
+  Receptora: 'Punta receptora',
+};
+
+export function normalizePosition(position: string): Position {
+  if ((POSITIONS as string[]).includes(position)) return position as Position;
+  return LEGACY_POSITIONS[position] ?? 'Punta receptora';
+}
+
+/** Adapta una jugadora guardada con una versión anterior: posiciones nuevas y sin dorsal. */
+export function normalizeLegacyPlayer<T extends { position: string; number?: unknown }>(player: T): T {
+  player.position = normalizePosition(player.position);
+  delete player.number;
+  return player;
+}
+
+/** Ordena por posición y, dentro de cada posición, por nombre. */
+export function comparePlayers(a: Pick<Player, 'position' | 'name'>, b: Pick<Player, 'position' | 'name'>) {
+  return POSITIONS.indexOf(a.position) - POSITIONS.indexOf(b.position) || a.name.localeCompare(b.name, 'es');
+}
 
 export type PlayerStatus = 'activa' | 'readaptacion' | 'lesionada' | 'baja';
 export const PLAYER_STATUS_LABEL: Record<PlayerStatus, string> = {
@@ -9,12 +49,14 @@ export const PLAYER_STATUS_LABEL: Record<PlayerStatus, string> = {
   baja: 'Baja',
 };
 
+/** «partido» ya no se puede elegir; se mantiene solo para mostrar datos antiguos. */
 export type SessionType = 'entrenamiento' | 'partido' | 'fisico';
 export const SESSION_TYPE_LABEL: Record<SessionType, string> = {
   entrenamiento: 'Entrenamiento',
   partido: 'Partido',
   fisico: 'Físico',
 };
+export const SELECTABLE_SESSION_TYPES: SessionType[] = ['entrenamiento', 'fisico'];
 
 export type SessionStatus = 'en_curso' | 'finalizado';
 export type SessionMode = 'vivo' | 'manual';
@@ -46,7 +88,6 @@ export interface Player {
   id?: number;
   teamId: number;
   name: string;
-  number?: number;
   position: Position;
   status: PlayerStatus;
   /** Límite de saltos por sesión (opcional). */

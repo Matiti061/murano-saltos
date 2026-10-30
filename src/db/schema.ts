@@ -1,13 +1,14 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type {
-  Attendance,
-  Block,
-  Complaint,
-  JumpEvent,
-  Player,
-  Session,
-  Settings,
-  Team,
+import {
+  normalizeLegacyPlayer,
+  type Attendance,
+  type Block,
+  type Complaint,
+  type JumpEvent,
+  type Player,
+  type Session,
+  type Settings,
+  type Team,
 } from './types';
 
 export type MuranoDB = Dexie & {
@@ -23,7 +24,7 @@ export type MuranoDB = Dexie & {
 
 export const db = new Dexie('murano-saltos') as MuranoDB;
 
-db.version(1).stores({
+const STORES = {
   teams: '++id, name',
   players: '++id, teamId, archived',
   sessions: '++id, teamId, date, status, [teamId+date]',
@@ -32,7 +33,22 @@ db.version(1).stores({
   jumpEvents: '++id, sessionId, playerId, blockId, [sessionId+playerId]',
   complaints: '++id, playerId, sessionId, date',
   settings: 'id',
-});
+};
+
+db.version(1).stores(STORES);
+
+// v2: posiciones renombradas (Colocadora → Armadora, Receptora → Punta receptora) y sin dorsales.
+// No se borra ningún otro dato.
+db.version(2)
+  .stores(STORES)
+  .upgrade((tx) =>
+    tx
+      .table('players')
+      .toCollection()
+      .modify((p) => {
+        normalizeLegacyPlayer(p);
+      }),
+  );
 
 export const ALL_TABLES = [
   'teams',

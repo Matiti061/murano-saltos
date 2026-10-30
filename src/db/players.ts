@@ -1,6 +1,6 @@
 import { db } from './schema';
 import { deleteSessionsCascade } from './sessions';
-import type { Player } from './types';
+import { comparePlayers, POSITIONS, type Player } from './types';
 
 export async function createTeam(name: string, demo = false): Promise<number> {
   return (await db.teams.add({ name: name.trim(), demo, createdAt: Date.now() })) as number;
@@ -31,7 +31,6 @@ export async function savePlayer(player: Player): Promise<number> {
     ...player,
     name: player.name.trim(),
     jumpLimit: player.jumpLimit && player.jumpLimit > 0 ? player.jumpLimit : undefined,
-    number: player.number ?? undefined,
   };
   return (await db.players.put(clean)) as number;
 }
@@ -50,10 +49,17 @@ export async function deletePlayerCascade(playerId: number) {
   });
 }
 
-export function sortPlayers<T extends Pick<Player, 'number' | 'name'>>(players: T[]): T[] {
-  return [...players].sort((a, b) => {
-    const na = a.number ?? 999;
-    const nb = b.number ?? 999;
-    return na !== nb ? na - nb : a.name.localeCompare(b.name, 'es');
-  });
+/** Por posición (Armadora → Líbero) y luego por nombre. */
+export function sortPlayers<T extends Pick<Player, 'position' | 'name'>>(players: T[]): T[] {
+  return [...players].sort(comparePlayers);
+}
+
+/** Agrupa en el orden de POSITIONS, omitiendo las posiciones sin jugadoras. */
+export function groupByPosition<T>(items: T[], getPlayer: (item: T) => Pick<Player, 'position' | 'name'>) {
+  return POSITIONS.map((position) => ({
+    position,
+    items: items
+      .filter((i) => getPlayer(i).position === position)
+      .sort((a, b) => getPlayer(a).name.localeCompare(getPlayer(b).name, 'es')),
+  })).filter((g) => g.items.length > 0);
 }

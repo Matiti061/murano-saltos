@@ -1,6 +1,6 @@
 import { ALL_TABLES, db, type TableName } from '../db/schema';
 import { updateSettings } from '../db/settings';
-import { ATTENDANCE_LABEL, SESSION_TYPE_LABEL, type JumpEvent } from '../db/types';
+import { ATTENDANCE_LABEL, normalizeLegacyPlayer, SESSION_TYPE_LABEL, type JumpEvent, type Player } from '../db/types';
 import { toCsv, type CsvCell } from './csv';
 import { downloadText } from './download';
 import { todayISO } from './format';
@@ -76,6 +76,8 @@ export async function restoreBackup(file: BackupFile) {
       await db.table(t).clear();
       let rows = file.data[t] ?? [];
       if (t === 'jumpEvents' && file.version >= 2) rows = unpackEvents(rows as EventTuple[]);
+      // Copias antiguas: posiciones con el nombre anterior y dorsales.
+      if (t === 'players') rows = (rows as Player[]).map((p) => normalizeLegacyPlayer({ ...p }));
       if (rows.length) await db.table(t).bulkAdd(rows);
     }
   });
@@ -101,7 +103,6 @@ export async function exportLoadsCsv() {
       teamById.get(s!.teamId)?.name,
       SESSION_TYPE_LABEL[s!.type],
       s!.durationMin,
-      p!.number,
       p!.name,
       p!.position,
       ATTENDANCE_LABEL[a.status],
@@ -121,7 +122,6 @@ export async function exportLoadsCsv() {
     'Equipo',
     'Tipo',
     'Duración sesión (min)',
-    'Dorsal',
     'Jugadora',
     'Posición',
     'Asistencia',

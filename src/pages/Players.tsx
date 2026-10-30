@@ -2,9 +2,10 @@ import { Archive, HeartPulse, Plus, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AcwrBadge } from '../components/AcwrBadge';
-import { NumberBubble, StatusBadge } from '../components/PlayerBits';
+import { PositionBubble, PositionHeader, StatusBadge } from '../components/PlayerBits';
 import { PlayerForm } from '../components/PlayerForm';
 import { Badge, Button, Card, EmptyState, PageHeader } from '../components/ui';
+import { groupByPosition } from '../db/players';
 import { useActiveTeam } from '../hooks/useActiveTeam';
 import { useTeamLoad } from '../hooks/useTeamLoad';
 import { NoTeam } from './Dashboard';
@@ -48,36 +49,42 @@ export function Players() {
           </EmptyState>
         </Card>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {visible.map(({ player, acwrJumps, jumps7d, activeComplaints }) => (
-            <Link key={player.id} to={`/jugadoras/${player.id}`}>
-              <Card className={`flex items-center gap-3 p-4 transition-shadow hover:shadow-md ${player.archived ? 'opacity-60' : ''}`}>
-                <NumberBubble player={player} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <p className="truncate font-semibold text-slate-900">{player.name}</p>
-                    <StatusBadge status={player.status} />
-                    {player.archived ? <Badge>Archivada</Badge> : null}
-                  </div>
-                  <p className="text-sm text-slate-500">
-                    {player.position}
-                    {player.jumpLimit ? ` · límite ${player.jumpLimit}` : ''}
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
-                    <span className="tabular-nums">{jumps7d} saltos en 7 días</span>
-                    {activeComplaints.length > 0 && (
-                      <Badge tone="red">
-                        <HeartPulse size={12} /> {activeComplaints.length}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="mb-1 text-[10px] font-semibold tracking-wide text-slate-400 uppercase">ACWR</p>
-                  <AcwrBadge result={acwrJumps} />
-                </div>
-              </Card>
-            </Link>
+        <div className="space-y-6">
+          {groupByPosition(visible, (s) => s.player).map(({ position, items }) => (
+            <section key={position}>
+              <div className="mb-2">
+                <PositionHeader position={position} count={items.length} />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
+                {items.map(({ player, acwrJumps, jumps7d, activeComplaints }) => (
+                  <Link key={player.id} to={`/jugadoras/${player.id}`}>
+                    <Card className={`flex items-center gap-3 p-4 transition-shadow hover:shadow-md ${player.archived ? 'opacity-60' : ''}`}>
+                      <PositionBubble player={player} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <p className="truncate font-semibold text-slate-900">{player.name}</p>
+                          <StatusBadge status={player.status} />
+                          {player.archived ? <Badge>Archivada</Badge> : null}
+                        </div>
+                        {player.jumpLimit ? <p className="text-sm text-slate-500">Límite: {player.jumpLimit} saltos</p> : null}
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                          <span className="tabular-nums">{jumps7d} saltos en 7 días</span>
+                          {activeComplaints.length > 0 && (
+                            <Badge tone="red">
+                              <HeartPulse size={12} /> {activeComplaints.length}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="mb-1 text-[10px] font-semibold tracking-wide text-slate-400 uppercase">ACWR</p>
+                        <AcwrBadge result={acwrJumps} />
+                      </div>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       )}

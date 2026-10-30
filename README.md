@@ -6,7 +6,8 @@ Funciona **en un solo dispositivo y sin internet** (tablet o móvil en el pabell
 
 ## Qué hace
 
-- **Jugadoras**: nombre, dorsal, posición, estado (activa, readaptación, lesionada, baja) y un límite opcional de saltos por sesión.
+- **Jugadoras**: nombre, posición, estado (activa, readaptación, lesionada, baja) y un límite opcional de saltos por sesión. No se usan dorsales: todo se organiza por posición, en este orden: Armadora, Punta receptora, Opuesta, Central y Líbero.
+- **Solo entrenamientos** (técnicos o de físico); los partidos se gestionan con otra herramienta.
 - **Conteo en vivo**: un toque en la tarjeta suma un salto; −1 por jugadora y «Deshacer» general. Los saltos se separan por ejercicio (calentamiento, ataque, 6x6…). Avisa con vibración al 80 % del límite y al alcanzarlo. La pantalla no se apaga mientras cuentas.
 - **Wellness antes de entrenar** (sueño, fatiga, dolor muscular, estrés) y **RPE** al terminar.
 - **Molestias y lesiones** con zona, lado, intensidad y notas del fisio.
@@ -59,3 +60,7 @@ src/
 ```
 
 Stack: Vite + React + TypeScript, Tailwind CSS, Dexie, Recharts, jsPDF y vite-plugin-pwa.
+
+## Datos de versiones anteriores
+
+Al abrir una versión nueva, la app adapta sola los datos guardados en el dispositivo sin borrar nada: en la versión 2 las posiciones «Colocadora» y «Receptora» pasaron a «Armadora» y «Punta receptora» y se quitó el dorsal. Las copias de seguridad antiguas se convierten igual al importarlas.

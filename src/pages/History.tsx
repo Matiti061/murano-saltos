@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { Badge, Button, ButtonLink, Card, EmptyState, Field, Input, PageHeader, Select } from '../components/ui';
 import { db } from '../db/schema';
 import { isPresent } from '../db/sessions';
-import { SESSION_TYPE_LABEL, type SessionType } from '../db/types';
+import { SELECTABLE_SESSION_TYPES, SESSION_TYPE_LABEL, type SessionType } from '../db/types';
 import { useActiveTeam } from '../hooks/useActiveTeam';
 import { capitalize, fmtDateLong, fmtTime } from '../lib/format';
 import { NoTeam } from './Dashboard';
@@ -58,9 +58,9 @@ export function History() {
         <Field label="Tipo">
           <Select value={type} onChange={(e) => setType(e.target.value as SessionType | '')}>
             <option value="">Todos</option>
-            {Object.entries(SESSION_TYPE_LABEL).map(([k, v]) => (
+            {SELECTABLE_SESSION_TYPES.map((k) => (
               <option key={k} value={k}>
-                {v}
+                {SESSION_TYPE_LABEL[k]}
               </option>
             ))}
           </Select>
