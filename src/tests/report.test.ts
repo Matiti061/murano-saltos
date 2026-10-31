@@ -5,33 +5,34 @@ import { createSessionPdf, sessionPdfFilename } from '../lib/pdf/sessionReport';
 import { buildReport, type ReportRaw } from '../lib/report';
 
 const players: Player[] = [
-  { id: 1, teamId: 1, name: 'Lucía Martín', position: 'Armadora', status: 'activa', archived: 0, createdAt: 0 },
-  { id: 2, teamId: 1, name: 'Nerea Torres', position: 'Punta receptora', status: 'readaptacion', jumpLimit: 3, archived: 0, createdAt: 0 },
-  { id: 3, teamId: 1, name: 'Andrea Vega', position: 'Líbero', status: 'activa', archived: 0, createdAt: 0 },
+  { id: 'p1', teamId: 't1', name: 'Lucía Martín', position: 'Armadora', status: 'activa', archived: 0, createdAt: 0 },
+  { id: 'p2', teamId: 't1', name: 'Nerea Torres', position: 'Punta receptora', status: 'readaptacion', jumpLimit: 3, archived: 0, createdAt: 0 },
+  { id: 'p3', teamId: 't1', name: 'Andrea Vega', position: 'Líbero', status: 'activa', archived: 0, createdAt: 0 },
 ];
 
 const start = new Date('2026-10-28T18:00:00').getTime();
 const blocks: Block[] = [
-  { id: 11, sessionId: 7, name: 'Calentamiento', order: 1, startedAt: start, endedAt: start + 10 * 60_000 },
-  { id: 12, sessionId: 7, name: 'Bloqueo', order: 2, startedAt: start + 10 * 60_000, endedAt: start + 30 * 60_000 },
+  { id: 'b11', sessionId: 's7', name: 'Calentamiento', order: 1, startedAt: start, endedAt: start + 10 * 60_000 },
+  { id: 'b12', sessionId: 's7', name: 'Bloqueo', order: 2, startedAt: start + 10 * 60_000, endedAt: start + 30 * 60_000 },
 ];
 
-function ev(playerId: number, blockId: number | undefined, n: number): JumpEvent[] {
-  return Array.from({ length: n }, () => ({ sessionId: 7, playerId, blockId, ts: start }));
+function ev(playerId: string, blockId: string | undefined, n: number): JumpEvent[] {
+  return Array.from({ length: n }, () => ({ sessionId: 's7', playerId, ts: start, ...(blockId ? { blockId } : {}) }));
 }
 
-const events = [...ev(1, 11, 2), ...ev(1, 12, 5), ...ev(2, 12, 3), ...ev(1, undefined, 1)];
+// Lucía: 2 saltos ya compactados en el calentamiento + 5 toques pendientes en bloqueo + 1 sin ejercicio.
+const events = [...ev('p1', 'b12', 5), ...ev('p2', 'b12', 3), ...ev('p1', undefined, 1)];
 
 const attendance: Attendance[] = [
-  { id: 1, sessionId: 7, playerId: 1, status: 'presente', manualJumps: 0, jumps: 8, minutes: 90, rpe: 7, wellness: { sleep: 2, fatigue: 4, soreness: 4, stress: 4 } },
-  { id: 2, sessionId: 7, playerId: 2, status: 'parcial', manualJumps: 0, jumps: 3, minutes: 45, rpe: 5 },
-  { id: 3, sessionId: 7, playerId: 3, status: 'ausente', manualJumps: 0, jumps: 0 },
+  { id: 'a1', sessionId: 's7', playerId: 'p1', status: 'presente', manualJumps: 0, blockJumps: { b11: 2 }, jumps: 8, minutes: 90, rpe: 7, wellness: { sleep: 2, fatigue: 4, soreness: 4, stress: 4 } },
+  { id: 'a2', sessionId: 's7', playerId: 'p2', status: 'parcial', manualJumps: 0, jumps: 3, minutes: 45, rpe: 5 },
+  { id: 'a3', sessionId: 's7', playerId: 'p3', status: 'ausente', manualJumps: 0, jumps: 0 },
 ];
 
 const raw: ReportRaw = {
   session: {
-    id: 7,
-    teamId: 1,
+    id: 's7',
+    teamId: 't1',
     date: '2026-10-28',
     type: 'entrenamiento',
     status: 'finalizado',
@@ -41,19 +42,19 @@ const raw: ReportRaw = {
     durationMin: 90,
     notes: 'Buena intensidad. Ojo con la recepción.',
   },
-  team: { id: 1, name: 'Senior Femenino', createdAt: 0 },
+  team: { id: 't1', name: 'Senior Femenino', createdAt: 0 },
   settings: DEFAULT_SETTINGS,
   players,
   attendance,
   blocks,
   events,
   history: new Map([
-    [1, [{ date: '2026-10-28', jumps: 8, srpe: 630 }]],
-    [2, [{ date: '2026-10-28', jumps: 3, srpe: 225 }]],
+    ['p1', [{ date: '2026-10-28', jumps: 8, srpe: 630 }]],
+    ['p2', [{ date: '2026-10-28', jumps: 3, srpe: 225 }]],
   ]),
   wellnessAvg: new Map(),
   complaints: [
-    { id: 1, playerId: 2, sessionId: 7, date: '2026-10-28', zone: 'Rodilla', side: 'derecha', intensity: 4, kind: 'molestia', createdAt: 0 },
+    { id: 'c1', playerId: 'p2', sessionId: 's7', date: '2026-10-28', zone: 'Rodilla', side: 'derecha', intensity: 4, kind: 'molestia', createdAt: 0 },
   ],
   now: start + 100 * 60_000,
 };
@@ -71,7 +72,8 @@ describe('buildReport', () => {
 
   it('reparte los saltos por ejercicio', () => {
     const lucia = data.rows[0];
-    expect(lucia.perBlock).toEqual({ 11: 2, 12: 5 });
+    expect(lucia.perBlock).toEqual({ b11: 2, b12: 5 });
+    expect(lucia.jumps).toBe(8);
     expect(lucia.noBlock).toBe(1);
     expect(lucia.srpe).toBe(630);
     expect(data.showNoBlock).toBe(true);

@@ -1,16 +1,21 @@
 import { ALL_TABLES, db, type TableName } from '../db/schema';
 import { updateSettings } from '../db/settings';
-import { ATTENDANCE_LABEL, normalizeLegacyPlayer, SESSION_TYPE_LABEL, type JumpEvent, type Player } from '../db/types';
+import { ATTENDANCE_LABEL, SESSION_TYPE_LABEL, type JumpEvent } from '../db/types';
 import { toCsv, type CsvCell } from './csv';
 import { downloadText } from './download';
 import { todayISO } from './format';
+import { importDataset, summarize, type Dataset, type DatasetSummary } from './importData';
 import { sessionRpeLoad, wellnessTotal } from './metrics';
 
 const BACKUP_APP = 'murano-saltos';
-/** v2: los saltos se guardan como tuplas para que la copia ocupe bastante menos. */
-const BACKUP_VERSION = 2;
+/**
+ * v1: ids numéricos. v2: toques como tuplas. v3: datos de la nube (ids de texto, saltos compactados).
+ * Todas se pueden importar.
+ */
+const BACKUP_VERSION = 3;
 
-type EventTuple = [id: number, sessionId: number, playerId: number, blockId: number | null, ts: number];
+type AnyId = string | number;
+type EventTuple = [id: AnyId, sessionId: AnyId, playerId: AnyId, blockId: AnyId | null, ts: number];
 
 interface BackupFile {
   app: typeof BACKUP_APP;
@@ -22,7 +27,7 @@ interface BackupFile {
 const packEvents = (rows: JumpEvent[]): EventTuple[] =>
   rows.map((e) => [e.id!, e.sessionId, e.playerId, e.blockId ?? null, e.ts]);
 
-const unpackEvents = (rows: EventTuple[]): JumpEvent[] =>
+const unpackEvents = (rows: EventTuple[]) =>
   rows.map(([id, sessionId, playerId, blockId, ts]) => ({ id, sessionId, playerId, ts, ...(blockId != null ? { blockId } : {}) }));
 
 export async function buildBackupJson(): Promise<string> {
@@ -40,13 +45,14 @@ export async function exportBackup() {
   await updateSettings({ lastBackupAt: Date.now() });
 }
 
-export interface BackupSummary {
+export interface ParsedBackup {
   exportedAt: string;
-  counts: Record<TableName, number>;
+  dataset: Dataset;
+  summary: DatasetSummary;
 }
 
-/** Valida el archivo y devuelve un resumen para pedir confirmación antes de importar. */
-export function parseBackup(text: string): { file: BackupFile; summary: BackupSummary } {
+/** Valida el archivo y lo deja listo para importar (con resumen para pedir confirmación). */
+export function parseBackup(text: string): ParsedBackup {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -60,27 +66,32 @@ export function parseBackup(text: string): { file: BackupFile; summary: BackupSu
   if (file.version > BACKUP_VERSION) {
     throw new Error('La copia es de una versión más nueva de la app. Actualiza la app primero.');
   }
-  const counts = {} as Record<TableName, number>;
   for (const t of ALL_TABLES) {
-    const rows = file.data[t] ?? [];
-    if (!Array.isArray(rows)) throw new Error(`Datos dañados en «${t}».`);
-    counts[t] = rows.length;
+    if (!Array.isArray(file.data[t] ?? [])) throw new Error(`Datos dañados en «${t}».`);
   }
-  return { file, summary: { exportedAt: file.exportedAt, counts } };
+  const rows = (t: TableName) => (file.data[t] ?? []) as never[];
+  const dataset: Dataset = {
+    teams: rows('teams'),
+    players: rows('players'),
+    sessions: rows('sessions'),
+    attendance: rows('attendance'),
+    blocks: rows('blocks'),
+    jumpEvents: file.version >= 2 ? (unpackEvents(rows('jumpEvents') as EventTuple[]) as never[]) : rows('jumpEvents'),
+    complaints: rows('complaints'),
+    settings: rows('settings'),
+  };
+  return { exportedAt: file.exportedAt, dataset, summary: summarize(dataset) };
 }
 
-/** Sustituye TODOS los datos actuales por los de la copia. */
-export async function restoreBackup(file: BackupFile) {
+/**
+ * Sustituye TODOS los datos (también en la nube y en los demás dispositivos) por los de la copia.
+ * Los ids se regeneran, así que sirve para copias de cualquier versión.
+ */
+export async function restoreBackup(backup: ParsedBackup) {
   await db.transaction('rw', ALL_TABLES.map((t) => db.table(t)), async () => {
-    for (const t of ALL_TABLES) {
-      await db.table(t).clear();
-      let rows = file.data[t] ?? [];
-      if (t === 'jumpEvents' && file.version >= 2) rows = unpackEvents(rows as EventTuple[]);
-      // Copias antiguas: posiciones con el nombre anterior y dorsales.
-      if (t === 'players') rows = (rows as Player[]).map((p) => normalizeLegacyPlayer({ ...p }));
-      if (rows.length) await db.table(t).bulkAdd(rows);
-    }
+    for (const t of ALL_TABLES) await db.table(t).clear();
   });
+  await importDataset(backup.dataset);
 }
 
 /** Una fila por jugadora y sesión, con todas las cargas. */

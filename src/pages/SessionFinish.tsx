@@ -17,7 +17,7 @@ interface RowState {
 }
 
 export function SessionFinish() {
-  const id = Number(useParams().id);
+  const id = useParams().id!;
   const navigate = useNavigate();
   const toast = useToast();
   const data = useLiveQuery(async () => {
@@ -30,7 +30,7 @@ export function SessionFinish() {
 
   const [duration, setDuration] = useState('');
   const [notes, setNotes] = useState('');
-  const [rows, setRows] = useState<Record<number, RowState>>({});
+  const [rows, setRows] = useState<Record<string, RowState>>({});
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -40,7 +40,7 @@ export function SessionFinish() {
     const mins = data.session.durationMin ?? Math.max(1, Math.round((Date.now() - data.session.startedAt) / 60_000));
     setDuration(String(mins));
     setNotes(data.session.notes ?? '');
-    const init: Record<number, RowState> = {};
+    const init: Record<string, RowState> = {};
     for (const a of data.attendance) {
       init[a.id!] = { rpe: a.rpe, minutes: a.minutes != null ? String(a.minutes) : a.status === 'parcial' ? '' : String(mins) };
     }

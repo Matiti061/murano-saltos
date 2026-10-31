@@ -30,7 +30,7 @@ async function buildPdfBlob(data: SessionReportData) {
 }
 
 export function SessionReport() {
-  const id = Number(useParams().id);
+  const id = useParams().id!;
   const navigate = useNavigate();
   const toast = useToast();
   const data = useLiveQuery(() => loadSessionReport(id).then((d) => d ?? null), [id]);
@@ -441,7 +441,7 @@ function AttendanceSelect({ attendance }: { attendance: Attendance }) {
   );
 }
 
-function AbsentSelect({ sessionId, playerId, status }: { sessionId: number; playerId: number; status: AttendanceStatus }) {
+function AbsentSelect({ sessionId, playerId, status }: { sessionId: string; playerId: string; status: AttendanceStatus }) {
   return (
     <Select
       className="h-9 w-32 text-sm"

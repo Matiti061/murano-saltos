@@ -30,7 +30,7 @@ export interface PlayerLoadSummary {
   activeComplaints: Complaint[];
 }
 
-export async function loadTeamSummary(teamId: number, includeArchived = false): Promise<PlayerLoadSummary[]> {
+export async function loadTeamSummary(teamId: string, includeArchived = false): Promise<PlayerLoadSummary[]> {
   const settings = await getSettings();
   const all = await db.players.where('teamId').equals(teamId).toArray();
   const players = sortPlayers(all.filter((p) => includeArchived || !p.archived));
@@ -75,7 +75,7 @@ export async function loadTeamSummary(teamId: number, includeArchived = false): 
   });
 }
 
-export function useTeamLoad(teamId: number | undefined, includeArchived = false) {
+export function useTeamLoad(teamId: string | undefined, includeArchived = false) {
   return useLiveQuery(
     () => (teamId == null ? Promise.resolve([] as PlayerLoadSummary[]) : loadTeamSummary(teamId, includeArchived)),
     [teamId, includeArchived],

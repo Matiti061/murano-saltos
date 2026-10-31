@@ -13,7 +13,7 @@ export function PlayerForm({
 }: {
   open: boolean;
   onClose: () => void;
-  teamId: number;
+  teamId: string;
   player?: Player;
 }) {
   const toast = useToast();

@@ -36,7 +36,7 @@ export function ManualEntry() {
   const [type, setType] = useState<SessionType>('entrenamiento');
   const [duration, setDuration] = useState('120');
   const [notes, setNotes] = useState('');
-  const [rows, setRows] = useState<Record<number, Row>>({});
+  const [rows, setRows] = useState<Record<string, Row>>({});
 
   useEffect(() => {
     if (!players) return;
@@ -50,7 +50,7 @@ export function ManualEntry() {
   if (teams && !team) return <NoTeam />;
   if (!players) return null;
 
-  const update = (id: number, changes: Partial<Row>) => setRows((r) => ({ ...r, [id]: { ...r[id], ...changes } }));
+  const update = (id: string, changes: Partial<Row>) => setRows((r) => ({ ...r, [id]: { ...r[id], ...changes } }));
 
   const save = async () => {
     const durationMin = Number(duration);

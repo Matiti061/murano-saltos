@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AcwrBadge } from '../components/AcwrBadge';
 import { PositionBubble } from '../components/PlayerBits';
+import { LegacyImport } from '../components/LegacyImport';
 import { useToast } from '../components/Toast';
 import { Badge, Button, ButtonLink, Card, CardHeader, Disclaimer, Input, StatTile } from '../components/ui';
 import { complaintLabel } from '../db/complaints';
@@ -18,7 +19,8 @@ import { exportBackup } from '../lib/backup';
 import { seedDemo } from '../lib/demo';
 import { capitalize, fmtDateLong, fmtNum, fmtTime, todayISO } from '../lib/format';
 
-const WEEK_MS = 7 * 86_400_000;
+/** Con la nube la copia es un respaldo extra: basta con una al mes. */
+const BACKUP_EVERY_MS = 30 * 86_400_000;
 
 export function NoTeam() {
   const { teams, setTeamId } = useActiveTeam();
@@ -29,6 +31,7 @@ export function NoTeam() {
 
   return (
     <div className="mx-auto max-w-xl py-8">
+      <LegacyImport />
       <Card className="p-6 sm:p-8">
         <img src="./logo.jpg" alt="Logo del club" className="mx-auto mb-4 h-28 w-28 object-contain" />
         <h1 className="text-2xl font-bold text-slate-900">Control de saltos</h1>
@@ -149,10 +152,11 @@ export function Dashboard() {
   const alerts = summary ? buildAlerts(summary) : [];
   const jumps7d = summary?.reduce((a, s) => a + s.jumps7d, 0) ?? 0;
   const rehab = summary?.filter((s) => s.player.status === 'readaptacion' || s.player.status === 'lesionada') ?? [];
-  const needsBackup = hasData && (!settings.lastBackupAt || Date.now() - settings.lastBackupAt > WEEK_MS);
+  const needsBackup = hasData && (!settings.lastBackupAt || Date.now() - settings.lastBackupAt > BACKUP_EVERY_MS);
 
   return (
     <>
+      <LegacyImport />
       {team.demo && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900">
           <span>
@@ -184,8 +188,8 @@ export function Dashboard() {
         <Card className="mb-4 flex flex-wrap items-center gap-3 border-amber-300 bg-amber-50 p-4">
           <DatabaseBackup className="text-amber-600" />
           <p className="flex-1 text-sm text-amber-900">
-            {settings.lastBackupAt ? 'Hace más de una semana de la última copia de seguridad.' : 'Aún no has hecho ninguna copia de seguridad.'}{' '}
-            Los datos solo están en este dispositivo: guarda una copia en Drive, correo o un USB.
+            {settings.lastBackupAt ? 'Hace más de un mes de la última copia de seguridad.' : 'Aún no has hecho ninguna copia de seguridad.'}{' '}
+            Los datos están en la nube, pero conviene guardar además una copia en Drive, el correo o un USB.
           </p>
           <Button
             size="sm"

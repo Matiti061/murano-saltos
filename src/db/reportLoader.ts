@@ -6,7 +6,7 @@ import { isPresent } from './sessions';
 import { getSettings } from './settings';
 import type { Player } from './types';
 
-export async function loadSessionReport(sessionId: number): Promise<SessionReportData | null> {
+export async function loadSessionReport(sessionId: string): Promise<SessionReportData | null> {
   const session = await db.sessions.get(sessionId);
   if (!session) return null;
   const [team, settings, attendance, blocks, events, complaints] = await Promise.all([
@@ -21,8 +21,8 @@ export async function loadSessionReport(sessionId: number): Promise<SessionRepor
   const players = (await db.players.bulkGet(playerIds)).filter((p): p is Player => p != null);
 
   const rowsByPlayer = await loadRowsForPlayers(playerIds);
-  const history = new Map<number, LoadPoint[]>();
-  const wellnessAvg = new Map<number, number | null>();
+  const history = new Map<string, LoadPoint[]>();
+  const wellnessAvg = new Map<string, number | null>();
   for (const [playerId, rows] of rowsByPlayer) {
     const upToHere = rows.filter(
       (r) =>

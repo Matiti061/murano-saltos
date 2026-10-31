@@ -20,7 +20,7 @@ import { fmtDate, fmtDateShort, fmtDayMonth, fmtNum, todayISO } from '../lib/for
 import { acwrSeries, computeAcwr, sessionRpeLoad, weeklyTotals, wellnessTotal } from '../lib/metrics';
 
 export function PlayerDetail() {
-  const id = Number(useParams().id);
+  const id = useParams().id!;
   const navigate = useNavigate();
   const toast = useToast();
   const settings = useSettings();

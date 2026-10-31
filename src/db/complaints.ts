@@ -2,23 +2,23 @@ import { todayISO } from '../lib/format';
 import { db } from './schema';
 import type { Complaint } from './types';
 
-export async function saveComplaint(c: Complaint): Promise<number> {
+export async function saveComplaint(c: Complaint): Promise<string> {
   return (await db.complaints.put({
     ...c,
     description: c.description?.trim() || undefined,
     physioNotes: c.physioNotes?.trim() || undefined,
-  })) as number;
+  })) as string;
 }
 
-export async function resolveComplaint(id: number, date = todayISO()) {
+export async function resolveComplaint(id: string, date = todayISO()) {
   await db.complaints.update(id, { resolvedDate: date });
 }
 
-export async function reopenComplaint(id: number) {
+export async function reopenComplaint(id: string) {
   await db.complaints.update(id, { resolvedDate: undefined });
 }
 
-export async function deleteComplaint(id: number) {
+export async function deleteComplaint(id: string) {
   await db.complaints.delete(id);
 }
 

@@ -23,6 +23,7 @@ import {
   type LimitState,
   type LoadPoint,
 } from './metrics';
+import { countEvents, mergeBlockJumps, totalJumps } from './jumps';
 
 export interface ReportRaw {
   session: Session;
@@ -31,11 +32,12 @@ export interface ReportRaw {
   players: Player[];
   attendance: Attendance[];
   blocks: Block[];
+  /** Toques todavía sin compactar (solo en sesiones en curso). */
   events: Pick<JumpEvent, 'playerId' | 'blockId'>[];
   /** Carga histórica de cada jugadora hasta esta sesión incluida. */
-  history: Map<number, LoadPoint[]>;
+  history: Map<string, LoadPoint[]>;
   /** Media personal de wellness sin contar esta sesión. */
-  wellnessAvg: Map<number, number | null>;
+  wellnessAvg: Map<string, number | null>;
   complaints: Complaint[];
   now: number;
 }
@@ -44,7 +46,8 @@ export interface ReportPlayerRow {
   player: Player;
   attendance: Attendance;
   jumps: number;
-  perBlock: Record<number, number>;
+  /** Saltos por id de ejercicio. */
+  perBlock: Record<string, number>;
   /** Saltos fuera de ejercicio o añadidos a mano. */
   noBlock: number;
   limit?: number;
@@ -98,13 +101,10 @@ export function buildReport(raw: ReportRaw): SessionReportData {
   const { session, settings } = raw;
   const playersById = new Map(raw.players.map((p) => [p.id!, p]));
 
-  const perPlayerBlock = new Map<number, Record<number, number>>();
-  for (const e of raw.events) {
-    if (e.blockId == null) continue;
-    const rec = perPlayerBlock.get(e.playerId) ?? {};
-    rec[e.blockId] = (rec[e.blockId] ?? 0) + 1;
-    perPlayerBlock.set(e.playerId, rec);
-  }
+  // Saltos por ejercicio = compactados (blockJumps) + toques pendientes.
+  const pendingByPlayer = countEvents(raw.events);
+  const blockIds = new Set(raw.blocks.map((b) => b.id!));
+  const perBlockOf = (att: Attendance) => mergeBlockJumps(att.blockJumps, pendingByPlayer.get(att.playerId));
 
   const rows: ReportPlayerRow[] = [];
   const absent: SessionReportData['absent'] = [];
@@ -115,20 +115,24 @@ export function buildReport(raw: ReportRaw): SessionReportData {
       absent.push({ player, status: att.status });
       continue;
     }
-    const perBlock = perPlayerBlock.get(att.playerId) ?? {};
+    const all = perBlockOf(att);
+    const perBlock: Record<string, number> = {};
+    for (const [key, n] of Object.entries(all)) if (blockIds.has(key)) perBlock[key] = n;
     const inBlocks = Object.values(perBlock).reduce((a, b) => a + b, 0);
+    const pending = Object.values(pendingByPlayer.get(att.playerId) ?? {}).reduce((a, b) => a + b, 0);
+    const jumps = totalJumps(att, pending);
     const limit = att.jumpLimit ?? player.jumpLimit;
     const points = raw.history.get(att.playerId) ?? [];
     const wTotal = wellnessTotal(att.wellness);
     rows.push({
       player,
       attendance: att,
-      jumps: att.jumps,
+      jumps,
       perBlock,
-      noBlock: att.jumps - inBlocks,
+      noBlock: jumps - inBlocks,
       limit,
-      limitPct: limit ? Math.round((att.jumps / limit) * 100) : undefined,
-      limitState: limitState(att.jumps, limit, settings.limitWarnPct),
+      limitPct: limit ? Math.round((jumps / limit) * 100) : undefined,
+      limitState: limitState(jumps, limit, settings.limitWarnPct),
       minutes: att.minutes,
       rpe: att.rpe,
       srpe: sessionRpeLoad(att.rpe, att.minutes),
@@ -143,9 +147,10 @@ export function buildReport(raw: ReportRaw): SessionReportData {
   rows.sort(byPosition);
   absent.sort(byPosition);
 
-  const blockJumps = new Map<number, number>();
-  for (const e of raw.events) {
-    if (e.blockId != null) blockJumps.set(e.blockId, (blockJumps.get(e.blockId) ?? 0) + 1);
+  const blockJumps = new Map<string, number>();
+  for (const att of raw.attendance) {
+    if (!isPresent(att.status)) continue;
+    for (const [key, n] of Object.entries(perBlockOf(att))) blockJumps.set(key, (blockJumps.get(key) ?? 0) + n);
   }
   const blocks: ReportBlockRow[] = [...raw.blocks]
     .sort((a, b) => a.order - b.order)
@@ -161,7 +166,7 @@ export function buildReport(raw: ReportRaw): SessionReportData {
       };
     });
 
-  const totalJumps = rows.reduce((a, r) => a + r.jumps, 0);
+  const teamJumps = rows.reduce((a, r) => a + r.jumps, 0);
   const top = rows.reduce<ReportPlayerRow | null>((best, r) => (!best || r.jumps > best.jumps ? r : best), null);
 
   const complaints = raw.complaints.map((complaint) => ({
@@ -178,8 +183,8 @@ export function buildReport(raw: ReportRaw): SessionReportData {
     blocks,
     showNoBlock: raw.blocks.length > 0 && rows.some((r) => r.noBlock !== 0),
     totals: {
-      jumps: totalJumps,
-      avg: rows.length ? totalJumps / rows.length : null,
+      jumps: teamJumps,
+      avg: rows.length ? teamJumps / rows.length : null,
       max: top && top.jumps > 0 ? { name: playerLabel(top.player), jumps: top.jumps } : null,
       present: rows.length,
       convened: rows.length + absent.length,

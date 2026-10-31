@@ -16,7 +16,7 @@ export function ComplaintForm({
   open: boolean;
   onClose: () => void;
   player: Player | undefined;
-  sessionId?: number;
+  sessionId?: string;
   complaint?: Complaint;
 }) {
   const toast = useToast();

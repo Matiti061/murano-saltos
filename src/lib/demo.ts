@@ -1,7 +1,7 @@
 import { addDays, getISODay, subDays } from 'date-fns';
 import { createTeam, deleteTeamCascade } from '../db/players';
 import { db } from '../db/schema';
-import type { Attendance, Block, JumpEvent, Player, Position } from '../db/types';
+import type { Attendance, Block, Player, Position } from '../db/types';
 import { toISODate } from './format';
 
 /** Generador pseudoaleatorio con semilla, para que los datos de ejemplo sean siempre iguales. */
@@ -43,7 +43,7 @@ export async function hasDemoData(): Promise<boolean> {
 }
 
 /** Crea un equipo de ejemplo con 5 semanas de entrenamientos. Devuelve el id del equipo. */
-export async function seedDemo(): Promise<number> {
+export async function seedDemo(): Promise<string> {
   const random = rng(20261030);
   const teamId = await createTeam('Equipo de ejemplo', true);
 
@@ -57,7 +57,7 @@ export async function seedDemo(): Promise<number> {
     archived: 0,
     createdAt: Date.now(),
   }));
-  const playerIds = (await db.players.bulkAdd(players, { allKeys: true })) as number[];
+  const playerIds = (await db.players.bulkAdd(players, { allKeys: true })) as string[];
 
   const today = new Date();
   const firstDay = subDays(today, 35);
@@ -73,7 +73,7 @@ export async function seedDemo(): Promise<number> {
     const daysAgo = Math.round((today.getTime() - day.getTime()) / 86_400_000);
     const isLast = si === sessionDays.length - 1;
 
-    await db.transaction('rw', [db.sessions, db.attendance, db.blocks, db.jumpEvents, db.complaints], async () => {
+    await db.transaction('rw', [db.sessions, db.attendance, db.blocks, db.complaints], async () => {
       const sessionId = (await db.sessions.add({
         teamId,
         date,
@@ -84,7 +84,7 @@ export async function seedDemo(): Promise<number> {
         endedAt: startedAt + durationMin * 60_000,
         durationMin,
         notes: isLast ? 'Ejemplo: semana de carga alta antes del partido del sábado.' : undefined,
-      })) as number;
+      })) as string;
 
       let t = startedAt;
       const blocks: Block[] = DEMO_BLOCKS.map((b, order) => {
@@ -92,10 +92,10 @@ export async function seedDemo(): Promise<number> {
         t += b.min * 60_000;
         return block;
       });
-      const blockIds = (await db.blocks.bulkAdd(blocks, { allKeys: true })) as number[];
+      const blockIds = (await db.blocks.bulkAdd(blocks, { allKeys: true })) as string[];
 
       const attendance: Attendance[] = [];
-      const events: JumpEvent[] = [];
+
       for (const [pi, p] of DEMO_PLAYERS.entries()) {
         const playerId = playerIds[pi];
         const absent = random() < 0.05 && !isLast;
@@ -108,18 +108,12 @@ export async function seedDemo(): Promise<number> {
         const spike = pi === 9 && daysAgo < 7 ? 2 : 1;
         const progression = rehab ? 0.35 + (1 - daysAgo / 35) * 0.3 : 1;
         const jumps = Math.max(0, Math.round(p.base * spike * progression * (0.85 + random() * 0.3)));
-        for (const [bi, b] of DEMO_BLOCKS.entries()) {
-          const n = Math.round(jumps * b.share);
-          for (let k = 0; k < n; k++) {
-            events.push({
-              sessionId,
-              playerId,
-              blockId: blockIds[bi],
-              ts: blocks[bi].startedAt + Math.floor(random() * b.min * 60_000),
-            });
-          }
-        }
-        const total = DEMO_BLOCKS.reduce((a, b) => a + Math.round(jumps * b.share), 0);
+        // Ya compactado por ejercicio, como queda una sesión finalizada.
+        const blockJumps: Record<string, number> = {};
+        DEMO_BLOCKS.forEach((b, bi) => {
+          blockJumps[blockIds[bi]] = Math.round(jumps * b.share);
+        });
+        const total = Object.values(blockJumps).reduce((a, b) => a + b, 0);
         const lowWellness = isLast && pi === 4;
         const w = () => Math.min(5, 3 + Math.floor(random() * 3));
         attendance.push({
@@ -132,11 +126,11 @@ export async function seedDemo(): Promise<number> {
             ? { sleep: 2, fatigue: 2, soreness: 3, stress: 3 }
             : { sleep: w(), fatigue: w(), soreness: w(), stress: w() },
           manualJumps: 0,
+          blockJumps,
           jumps: total,
         });
       }
       await db.attendance.bulkAdd(attendance);
-      await db.jumpEvents.bulkAdd(events);
 
       if (isLast) {
         await db.complaints.add({

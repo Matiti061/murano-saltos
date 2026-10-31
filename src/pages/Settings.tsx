@@ -1,14 +1,15 @@
-import { useLiveQuery } from 'dexie-react-hooks';
-import { ArrowDown, ArrowUp, DatabaseBackup, FileSpreadsheet, Plus, ShieldCheck, Sparkles, Trash2, Upload } from 'lucide-react';
+import { useLiveQuery, useObservable } from 'dexie-react-hooks';
+import { ArrowDown, ArrowUp, DatabaseBackup, FileSpreadsheet, LogOut, Plus, RefreshCw, ShieldCheck, Sparkles, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Modal } from '../components/Modal';
+import { SyncStatus } from '../components/SyncStatus';
 import { useToast } from '../components/Toast';
 import { Badge, Button, Card, CardHeader, Field, Input, PageHeader, Select } from '../components/ui';
 import { createTeam, deleteTeamCascade, renameTeam } from '../db/players';
 import { db, isStoragePersisted, requestPersistentStorage } from '../db/schema';
 import { updateSettings, useSettings } from '../db/settings';
 import { useActiveTeam } from '../hooks/useActiveTeam';
-import { exportBackup, exportComplaintsCsv, exportLoadsCsv, parseBackup, restoreBackup, type BackupSummary } from '../lib/backup';
+import { exportBackup, exportComplaintsCsv, exportLoadsCsv, parseBackup, restoreBackup, type ParsedBackup } from '../lib/backup';
 import { clearDemo, hasDemoData, seedDemo } from '../lib/demo';
 import { CLUB_LOGO_URL } from '../lib/clubLogo';
 import { fmtNum } from '../lib/format';
@@ -40,6 +41,57 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
   );
 }
 
+/** Cuenta con la que este dispositivo sincroniza los datos del club. */
+function AccountSection() {
+  const user = useObservable(db.cloud.currentUser);
+  const toast = useToast();
+  const license = user?.license;
+  return (
+    <Section title="Cuenta y sincronización" subtitle="Los datos se guardan en la nube y en cada dispositivo">
+      <div className="space-y-3 text-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-slate-500">Conectado como</span>
+          <span className="font-semibold text-slate-900">{user?.email ?? user?.userId}</span>
+          {license?.type === 'prod' && <Badge tone="green">Cuenta de producción</Badge>}
+          {license?.type === 'eval' && <Badge tone="amber">En evaluación · quedan {license.evalDaysLeft ?? '?'} días</Badge>}
+          {license?.type === 'demo' && <Badge tone="brand">Usuario de prueba</Badge>}
+        </div>
+        <SyncStatus />
+        <p className="text-slate-600">
+          Para usar la app en otro dispositivo, abre la misma dirección web e inicia sesión con este correo. Sin internet
+          se puede seguir contando: los cambios se suben solos al volver la conexión.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={async () => {
+              try {
+                await db.cloud.sync({ purpose: 'pull', wait: true });
+                toast('Sincronizado', 'success');
+              } catch (e) {
+                toast(`No se pudo sincronizar: ${(e as Error).message}`, 'error');
+              }
+            }}
+          >
+            <RefreshCw size={16} /> Sincronizar ahora
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={async () => {
+              if (!confirm('¿Cerrar sesión en este dispositivo? Los datos siguen en la nube; para volver a entrar te pedirá un código por correo.')) return;
+              await db.cloud.logout();
+            }}
+          >
+            <LogOut size={16} /> Cerrar sesión
+          </Button>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
 export function SettingsPage() {
   const settings = useSettings();
   const toast = useToast();
@@ -50,7 +102,7 @@ export function SettingsPage() {
   const [newExercise, setNewExercise] = useState('');
   const [persisted, setPersisted] = useState<boolean | null>(null);
   const [usage, setUsage] = useState<string>('');
-  const [pendingImport, setPendingImport] = useState<{ file: Parameters<typeof restoreBackup>[0]; summary: BackupSummary } | null>(null);
+  const [pendingImport, setPendingImport] = useState<ParsedBackup | null>(null);
   const [busy, setBusy] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -73,6 +125,7 @@ export function SettingsPage() {
     <>
       <PageHeader title="Ajustes" />
       <div className="grid gap-5 lg:grid-cols-2">
+        <AccountSection />
         <Section title="Club" subtitle="Aparece en la cabecera de los informes PDF">
           <div className="space-y-4">
             <Field label="Nombre del club">
@@ -226,10 +279,10 @@ export function SettingsPage() {
           </div>
         </Section>
 
-        <Section title="Copia de seguridad" subtitle="Los datos se guardan solo en este dispositivo">
+        <Section title="Copia de seguridad" subtitle="Respaldo extra, además de la nube">
           <p className="mb-3 text-sm text-slate-600">
-            Descarga una copia periódicamente y guárdala en Drive, el correo o un USB. Si cambias de tablet, importa la copia en
-            la nueva. <b>Contiene datos de salud: guárdala en un sitio privado.</b>
+            Los datos ya están en la nube; aun así, descarga una copia de vez en cuando y guárdala en Drive, el correo o un USB.
+            Importar una copia sustituye los datos en todos los dispositivos. <b>Contiene datos de salud: guárdala en un sitio privado.</b>
           </p>
           <p className="mb-3 text-sm text-slate-500">
             Última copia: {settings.lastBackupAt ? new Date(settings.lastBackupAt).toLocaleString('es-ES') : 'nunca'}
@@ -307,7 +360,7 @@ export function SettingsPage() {
           </div>
         </Section>
 
-        <Section title="Datos de ejemplo" subtitle="Un equipo ficticio con 5 semanas de entrenamientos para probar la app">
+        <Section title="Datos de ejemplo" subtitle="Un equipo ficticio con 5 semanas de entrenamientos. Se sincroniza: bórralo cuando termines de probar">
           {demo ? (
             <Button
               variant="danger"
@@ -377,7 +430,7 @@ export function SettingsPage() {
               onClick={async () => {
                 setBusy(true);
                 try {
-                  await restoreBackup(pendingImport!.file);
+                  await restoreBackup(pendingImport!);
                   toast('Copia importada', 'success');
                   setPendingImport(null);
                 } catch (err) {
@@ -395,12 +448,12 @@ export function SettingsPage() {
         {pendingImport && (
           <div className="space-y-3 text-sm text-slate-700">
             <p>
-              Copia del <b>{new Date(pendingImport.summary.exportedAt).toLocaleString('es-ES')}</b> con{' '}
-              {pendingImport.summary.counts.teams} equipos, {pendingImport.summary.counts.players} jugadoras y{' '}
-              {pendingImport.summary.counts.sessions} sesiones.
+              Copia del <b>{new Date(pendingImport.exportedAt).toLocaleString('es-ES')}</b> con{' '}
+              {pendingImport.summary.teams} equipos, {pendingImport.summary.players} jugadoras y{' '}
+              {pendingImport.summary.sessions} sesiones.
             </p>
             <p className="rounded-xl bg-red-50 p-3 font-semibold text-red-800">
-              Se borrarán todos los datos actuales de este dispositivo y se sustituirán por los de la copia.
+              Se borrarán todos los datos actuales — en la nube y en todos los dispositivos — y se sustituirán por los de la copia.
             </p>
           </div>
         )}

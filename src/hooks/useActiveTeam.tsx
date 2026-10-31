@@ -9,8 +9,8 @@ interface TeamContextValue {
   /** undefined mientras carga. */
   teams: Team[] | undefined;
   team: Team | undefined;
-  teamId: number | undefined;
-  setTeamId: (id: number) => void;
+  teamId: string | undefined;
+  setTeamId: (id: string) => void;
 }
 
 const TeamContext = createContext<TeamContextValue>({
@@ -20,10 +20,9 @@ const TeamContext = createContext<TeamContextValue>({
   setTeamId: () => {},
 });
 
-function readStored(): number | undefined {
+function readStored(): string | undefined {
   try {
-    const v = Number(localStorage.getItem(STORAGE_KEY));
-    return Number.isFinite(v) && v > 0 ? v : undefined;
+    return localStorage.getItem(STORAGE_KEY) ?? undefined;
   } catch {
     return undefined;
   }
@@ -31,12 +30,12 @@ function readStored(): number | undefined {
 
 export function TeamProvider({ children }: { children: ReactNode }) {
   const teams = useLiveQuery(() => db.teams.toArray().then((ts) => ts.sort((a, b) => a.name.localeCompare(b.name, 'es'))), []);
-  const [selected, setSelected] = useState<number | undefined>(readStored);
+  const [selected, setSelected] = useState<string | undefined>(readStored);
 
-  const setTeamId = useCallback((id: number) => {
+  const setTeamId = useCallback((id: string) => {
     setSelected(id);
     try {
-      localStorage.setItem(STORAGE_KEY, String(id));
+      localStorage.setItem(STORAGE_KEY, id);
     } catch {
       // Sin almacenamiento local: la selección dura lo que dure la pestaña.
     }

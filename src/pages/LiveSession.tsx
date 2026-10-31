@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ComplaintForm } from '../components/ComplaintForm';
 import { LiveCard } from '../components/LiveCard';
+import { SyncStatus } from '../components/SyncStatus';
 import { Modal } from '../components/Modal';
 import { PositionBubble, PositionHeader } from '../components/PlayerBits';
 import { useToast } from '../components/Toast';
@@ -25,6 +26,7 @@ import { ATTENDANCE_LABEL, SESSION_TYPE_LABEL, type AttendanceStatus, type Playe
 import { useNow } from '../hooks/useNow';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { fmtElapsed, jumpsLabel } from '../lib/format';
+import { countEvents, mergeBlockJumps, totalJumps } from '../lib/jumps';
 import { limitState } from '../lib/metrics';
 
 
@@ -36,7 +38,7 @@ function vibrate(pattern: number | number[]) {
   }
 }
 
-async function loadLive(sessionId: number) {
+async function loadLive(sessionId: string) {
   const session = await db.sessions.get(sessionId);
   if (!session) return null;
   const [team, attendance, blocks] = await Promise.all([
@@ -50,21 +52,29 @@ async function loadLive(sessionId: number) {
   const missing = attendance.filter((a) => !playersById.has(a.playerId)).map((a) => a.playerId);
   for (const p of await db.players.bulkGet(missing)) if (p) playersById.set(p.id!, p);
 
-  const openBlock = blocks.find((b) => b.endedAt == null);
-  const blockCounts = new Map<number, number>();
-  if (openBlock) {
-    const events = await db.jumpEvents.where('blockId').equals(openBlock.id!).toArray();
-    for (const e of events) blockCounts.set(e.playerId, (blockCounts.get(e.playerId) ?? 0) + 1);
-  }
-  const blockTotals = new Map<number, number>();
-  for (const b of blocks) {
-    blockTotals.set(b.id!, await db.jumpEvents.where('blockId').equals(b.id!).count());
+  const openBlock = blocks.filter((b) => b.endedAt == null).sort((a, b) => b.startedAt - a.startedAt)[0];
+
+  // Los totales se calculan con todos los toques de la sesión (también los que llegan de otro
+  // dispositivo al sincronizar) más lo ya compactado y el ajuste manual.
+  const events = await db.jumpEvents.where('sessionId').equals(sessionId).toArray();
+  const pending = countEvents(events);
+  const perPlayer = new Map(attendance.map((a) => [a.playerId, mergeBlockJumps(a.blockJumps, pending.get(a.playerId))]));
+  const live = attendance.map((a) => {
+    const pendingCount = Object.values(pending.get(a.playerId) ?? {}).reduce((x, y) => x + y, 0);
+    return { ...a, jumps: totalJumps(a, pendingCount) };
+  });
+
+  const blockCounts = new Map<string, number>();
+  const blockTotals = new Map<string, number>();
+  for (const [playerId, rec] of perPlayer) {
+    if (openBlock) blockCounts.set(playerId, rec[openBlock.id!] ?? 0);
+    for (const b of blocks) blockTotals.set(b.id!, (blockTotals.get(b.id!) ?? 0) + (rec[b.id!] ?? 0));
   }
   const complaints = await db.complaints.where('playerId').anyOf([...playersById.keys()]).filter(isActiveComplaint).toArray();
   return {
     session,
     team,
-    attendance,
+    attendance: live,
     blocks,
     openBlock,
     blockCounts,
@@ -76,13 +86,13 @@ async function loadLive(sessionId: number) {
 }
 
 export function LiveSession() {
-  const id = Number(useParams().id);
+  const id = useParams().id!;
   const navigate = useNavigate();
   const toast = useToast();
   const settings = useSettings();
   const now = useNow(1000);
   const data = useLiveQuery(() => loadLive(id).then((d) => d ?? null), [id]);
-  const [flashes, setFlashes] = useState<Record<number, number>>({});
+  const [flashes, setFlashes] = useState<Record<string, number>>({});
   const [complaintPlayer, setComplaintPlayer] = useState<Player | undefined>();
   const [attendanceOpen, setAttendanceOpen] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
@@ -180,6 +190,7 @@ export function LiveSession() {
               <span className="ml-3 text-base font-semibold text-orange-100">{jumpsLabel(totalJumps)}</span>
             </p>
           </div>
+          <SyncStatus compact onDark />
           <Button variant="secondary" onClick={undo} className="border-0" disabled={finished}>
             <Undo2 size={18} /> <span className="hidden sm:inline">Deshacer</span>
           </Button>

@@ -78,15 +78,15 @@ export interface Wellness {
 }
 
 export interface Team {
-  id?: number;
+  id?: string;
   name: string;
   demo?: boolean;
   createdAt: number;
 }
 
 export interface Player {
-  id?: number;
-  teamId: number;
+  id?: string;
+  teamId: string;
   name: string;
   position: Position;
   status: PlayerStatus;
@@ -99,8 +99,8 @@ export interface Player {
 }
 
 export interface Session {
-  id?: number;
-  teamId: number;
+  id?: string;
+  teamId: string;
   /** yyyy-MM-dd */
   date: string;
   type: SessionType;
@@ -113,24 +113,29 @@ export interface Session {
 }
 
 export interface Attendance {
-  id?: number;
-  sessionId: number;
-  playerId: number;
+  id?: string;
+  sessionId: string;
+  playerId: string;
   status: AttendanceStatus;
   minutes?: number;
   rpe?: number;
   wellness?: Wellness;
   /** Saltos registrados a mano (registro manual o corrección posterior). Puede ser negativo. */
   manualJumps: number;
-  /** Total de saltos = eventos + manualJumps. Se recalcula en cada cambio. */
+  /**
+   * Saltos ya compactados por ejercicio (clave = id del ejercicio o NO_BLOCK).
+   * Al finalizar una sesión los toques individuales se resumen aquí para ocupar poco en la nube.
+   */
+  blockJumps?: Record<string, number>;
+  /** Total de saltos = compactados + toques pendientes + manualJumps. Se recalcula en cada cambio. */
   jumps: number;
   /** Límite específico para esta sesión (si no, se usa el de la jugadora). */
   jumpLimit?: number;
 }
 
 export interface Block {
-  id?: number;
-  sessionId: number;
+  id?: string;
+  sessionId: string;
   name: string;
   order: number;
   startedAt: number;
@@ -138,10 +143,10 @@ export interface Block {
 }
 
 export interface JumpEvent {
-  id?: number;
-  sessionId: number;
-  playerId: number;
-  blockId?: number;
+  id?: string;
+  sessionId: string;
+  playerId: string;
+  blockId?: string;
   ts: number;
 }
 
@@ -166,9 +171,9 @@ export const BODY_ZONES = [
 ];
 
 export interface Complaint {
-  id?: number;
-  playerId: number;
-  sessionId?: number;
+  id?: string;
+  playerId: string;
+  sessionId?: string;
   /** yyyy-MM-dd */
   date: string;
   zone: string;
@@ -183,7 +188,7 @@ export interface Complaint {
 }
 
 export interface Settings {
-  id: 'main';
+  id?: string;
   clubName: string;
   logoDataUrl?: string;
   acwrLow: number;
@@ -198,7 +203,6 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  id: 'main',
   clubName: 'Club Voleibol Murano',
   acwrLow: 0.8,
   acwrHigh: 1.3,

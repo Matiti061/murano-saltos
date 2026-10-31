@@ -3,3 +3,6 @@ dist
 dev-dist
 *.log
 .DS_Store
+# Credenciales de Dexie Cloud (nunca subir)
+dexie-cloud.key
+dexie-cloud.json

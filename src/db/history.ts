@@ -17,7 +17,7 @@ export function toLoadPoint(row: PlayerSessionRow): LoadPoint {
 }
 
 /** Todas las sesiones en las que participó una jugadora, ordenadas por fecha. */
-export async function loadPlayerRows(playerId: number): Promise<PlayerSessionRow[]> {
+export async function loadPlayerRows(playerId: string): Promise<PlayerSessionRow[]> {
   const atts = await db.attendance.where('playerId').equals(playerId).toArray();
   const sessions = await db.sessions.bulkGet(atts.map((a) => a.sessionId));
   return atts
@@ -32,12 +32,12 @@ export function loadPointsFrom(rows: PlayerSessionRow[]): LoadPoint[] {
 }
 
 /** Filas de todas las jugadoras de un conjunto de ids, agrupadas por jugadora. */
-export async function loadRowsForPlayers(playerIds: number[]): Promise<Map<number, PlayerSessionRow[]>> {
+export async function loadRowsForPlayers(playerIds: string[]): Promise<Map<string, PlayerSessionRow[]>> {
   const atts = await db.attendance.where('playerId').anyOf(playerIds).toArray();
   const sessionIds = [...new Set(atts.map((a) => a.sessionId))];
   const sessions = await db.sessions.bulkGet(sessionIds);
   const byId = new Map(sessions.filter(Boolean).map((s) => [s!.id!, s!]));
-  const out = new Map<number, PlayerSessionRow[]>(playerIds.map((id) => [id, []]));
+  const out = new Map<string, PlayerSessionRow[]>(playerIds.map((id) => [id, []]));
   for (const attendance of atts) {
     const session = byId.get(attendance.sessionId);
     if (session) out.get(attendance.playerId)?.push({ session, attendance });

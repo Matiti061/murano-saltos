@@ -1,9 +1,10 @@
 import { todayISO } from '../lib/format';
+import { countEvents, mergeBlockJumps, totalJumps } from '../lib/jumps';
 import { db } from './schema';
 import type { Attendance, AttendanceStatus, SessionType, Wellness } from './types';
 
 export interface AttendanceDraft {
-  playerId: number;
+  playerId: string;
   status: AttendanceStatus;
   wellness?: Wellness;
   jumpLimit?: number;
@@ -12,10 +13,10 @@ export interface AttendanceDraft {
 export const isPresent = (status: AttendanceStatus) => status === 'presente' || status === 'parcial';
 
 export async function createLiveSession(
-  teamId: number,
+  teamId: string,
   type: SessionType,
   drafts: AttendanceDraft[],
-): Promise<number> {
+): Promise<string> {
   return db.transaction('rw', [db.sessions, db.attendance], async () => {
     const sessionId = (await db.sessions.add({
       teamId,
@@ -24,7 +25,7 @@ export async function createLiveSession(
       status: 'en_curso',
       mode: 'vivo',
       startedAt: Date.now(),
-    })) as number;
+    })) as string;
     await db.attendance.bulkAdd(
       drafts.map((d) => ({
         sessionId,
@@ -41,7 +42,7 @@ export async function createLiveSession(
 }
 
 export interface ManualRow {
-  playerId: number;
+  playerId: string;
   status: AttendanceStatus;
   jumps: number;
   minutes?: number;
@@ -50,13 +51,13 @@ export interface ManualRow {
 
 /** Entrenamiento pasado contado en papel: se guardan solo los totales. */
 export async function createManualSession(input: {
-  teamId: number;
+  teamId: string;
   date: string;
   type: SessionType;
   durationMin: number;
   notes?: string;
   rows: ManualRow[];
-}): Promise<number> {
+}): Promise<string> {
   return db.transaction('rw', [db.sessions, db.attendance], async () => {
     const startedAt = new Date(`${input.date}T18:00:00`).getTime();
     const sessionId = (await db.sessions.add({
@@ -69,7 +70,7 @@ export async function createManualSession(input: {
       endedAt: startedAt + input.durationMin * 60_000,
       durationMin: input.durationMin,
       notes: input.notes,
-    })) as number;
+    })) as string;
     await db.attendance.bulkAdd(
       input.rows.map((r) => {
         const present = isPresent(r.status);
@@ -88,17 +89,17 @@ export async function createManualSession(input: {
   });
 }
 
-async function getAttendance(sessionId: number, playerId: number) {
+async function getAttendance(sessionId: string, playerId: string) {
   return db.attendance.where('[sessionId+playerId]').equals([sessionId, playerId]).first();
 }
 
-/** Recalcula el total de saltos (eventos + ajuste manual). Llamar dentro de una transacción. */
-async function recountJumps(sessionId: number, playerId: number): Promise<number> {
+/** Recalcula el total de saltos guardado. Llamar dentro de una transacción. */
+async function recountJumps(sessionId: string, playerId: string): Promise<number> {
   const att = await getAttendance(sessionId, playerId);
   if (!att) return 0;
-  const events = await db.jumpEvents.where('[sessionId+playerId]').equals([sessionId, playerId]).count();
-  const jumps = events + (att.manualJumps ?? 0);
-  await db.attendance.update(att.id!, { jumps });
+  const pending = await db.jumpEvents.where('[sessionId+playerId]').equals([sessionId, playerId]).count();
+  const jumps = totalJumps(att, pending);
+  if (jumps !== att.jumps) await db.attendance.update(att.id!, { jumps });
   return jumps;
 }
 
@@ -106,26 +107,22 @@ async function recountJumps(sessionId: number, playerId: number): Promise<number
  * Suma un salto al ejercicio que esté abierto en ese momento y devuelve el nuevo total.
  * El ejercicio se busca dentro de la transacción para no depender del estado de la pantalla.
  */
-export async function addJump(sessionId: number, playerId: number): Promise<number> {
+export async function addJump(sessionId: string, playerId: string): Promise<number> {
   return db.transaction('rw', [db.jumpEvents, db.attendance, db.blocks], async () => {
-    const open = await db.blocks
-      .where('sessionId')
-      .equals(sessionId)
-      .filter((b) => b.endedAt == null)
-      .last();
-    await db.jumpEvents.add({ sessionId, playerId, blockId: open?.id, ts: Date.now() });
+    const open = await getOpenBlock(sessionId);
+    await db.jumpEvents.add({ sessionId, playerId, ...(open ? { blockId: open.id } : {}), ts: Date.now() });
     return recountJumps(sessionId, playerId);
   });
 }
 
 /**
- * Quita el último salto registrado: de una jugadora concreta o, si no se indica,
- * el último de toda la sesión.
+ * Quita el último salto registrado (de una jugadora o, si no se indica, de toda la sesión).
+ * Solo se pueden deshacer toques de la sesión en curso; los ya compactados se corrigen con el ajuste manual.
  */
 export async function removeLastJump(
-  sessionId: number,
-  playerId?: number,
-): Promise<{ playerId: number; total: number } | null> {
+  sessionId: string,
+  playerId?: string,
+): Promise<{ playerId: string; total: number } | null> {
   return db.transaction('rw', [db.jumpEvents, db.attendance], async () => {
     const collection =
       playerId == null
@@ -133,15 +130,47 @@ export async function removeLastJump(
         : db.jumpEvents.where('[sessionId+playerId]').equals([sessionId, playerId]);
     const events = await collection.toArray();
     if (events.length === 0) return null;
-    const last = events.reduce((a, b) => (b.id! > a.id! ? b : a));
+    const last = events.reduce((a, b) => (b.ts > a.ts || (b.ts === a.ts && b.id! > a.id!) ? b : a));
     await db.jumpEvents.delete(last.id!);
     const total = await recountJumps(sessionId, last.playerId);
     return { playerId: last.playerId, total };
   });
 }
 
+/**
+ * Resume los toques de una sesión en `blockJumps` y los borra, para que la nube ocupe poco.
+ * Es idempotente y seguro aunque otro dispositivo haga lo mismo.
+ */
+export async function compactSession(sessionId: string) {
+  await db.transaction('rw', [db.jumpEvents, db.attendance], async () => {
+    const events = await db.jumpEvents.where('sessionId').equals(sessionId).toArray();
+    if (events.length === 0) return;
+    const byPlayer = countEvents(events);
+    const atts = await db.attendance.where('sessionId').equals(sessionId).toArray();
+    for (const att of atts) {
+      const counts = byPlayer.get(att.playerId);
+      if (!counts) continue;
+      const blockJumps = mergeBlockJumps(att.blockJumps, counts);
+      const updated = { ...att, blockJumps };
+      await db.attendance.update(att.id!, { blockJumps, jumps: totalJumps(updated, 0) });
+    }
+    // Solo se borran los toques de jugadoras con asistencia; el resto se deja para no perder nada.
+    const withAttendance = new Set(atts.map((a) => a.playerId));
+    await db.jumpEvents.bulkDelete(events.filter((e) => withAttendance.has(e.playerId)).map((e) => e.id!));
+  });
+}
+
+/** Compacta toques que hayan quedado en sesiones ya finalizadas (p. ej. llegados tarde desde otro dispositivo). */
+export async function compactFinishedLeftovers() {
+  // Solo quedan toques de sesiones en curso (pocos), así que leerlos todos es barato.
+  const sessionIds = new Set((await db.jumpEvents.toArray()).map((e) => e.sessionId));
+  if (sessionIds.size === 0) return;
+  const sessions = await db.sessions.bulkGet([...sessionIds]);
+  for (const s of sessions) if (s?.status === 'finalizado') await compactSession(s.id!);
+}
+
 /** Cambia el estado de asistencia (p. ej. una jugadora que llega tarde). Crea el registro si no existe. */
-export async function setAttendanceStatus(sessionId: number, playerId: number, status: AttendanceStatus) {
+export async function setAttendanceStatus(sessionId: string, playerId: string, status: AttendanceStatus) {
   await db.transaction('rw', [db.attendance], async () => {
     const att = await getAttendance(sessionId, playerId);
     if (att) await db.attendance.update(att.id!, { status });
@@ -149,7 +178,7 @@ export async function setAttendanceStatus(sessionId: number, playerId: number, s
   });
 }
 
-export async function updateAttendance(id: number, changes: Partial<Attendance>) {
+export async function updateAttendance(id: string, changes: Partial<Attendance>) {
   await db.transaction('rw', [db.attendance, db.jumpEvents], async () => {
     await db.attendance.update(id, changes);
     if ('manualJumps' in changes) {
@@ -159,12 +188,13 @@ export async function updateAttendance(id: number, changes: Partial<Attendance>)
   });
 }
 
-export async function getOpenBlock(sessionId: number) {
-  const blocks = await db.blocks.where('sessionId').equals(sessionId).toArray();
-  return blocks.find((b) => b.endedAt == null);
+/** El ejercicio abierto más reciente de la sesión. */
+export async function getOpenBlock(sessionId: string) {
+  const open = (await db.blocks.where('sessionId').equals(sessionId).toArray()).filter((b) => b.endedAt == null);
+  return open.sort((a, b) => b.startedAt - a.startedAt)[0];
 }
 
-export async function startBlock(sessionId: number, name: string): Promise<number> {
+export async function startBlock(sessionId: string, name: string): Promise<string> {
   return db.transaction('rw', [db.blocks], async () => {
     const blocks = await db.blocks.where('sessionId').equals(sessionId).toArray();
     const now = Date.now();
@@ -172,28 +202,28 @@ export async function startBlock(sessionId: number, name: string): Promise<numbe
     return (await db.blocks.add({
       sessionId,
       name: name.trim(),
-      order: blocks.length + 1,
+      order: Math.max(0, ...blocks.map((b) => b.order)) + 1,
       startedAt: now,
-    })) as number;
+    })) as string;
   });
 }
 
-export async function endOpenBlock(sessionId: number) {
+export async function endOpenBlock(sessionId: string) {
   const open = await getOpenBlock(sessionId);
   if (open) await db.blocks.update(open.id!, { endedAt: Date.now() });
 }
 
-export async function renameBlock(id: number, name: string) {
+export async function renameBlock(id: string, name: string) {
   await db.blocks.update(id, { name: name.trim() });
 }
 
 export interface FinishInput {
   durationMin: number;
   notes?: string;
-  rows: { attendanceId: number; rpe?: number; minutes?: number }[];
+  rows: { attendanceId: string; rpe?: number; minutes?: number }[];
 }
 
-export async function finishSession(sessionId: number, input: FinishInput) {
+export async function finishSession(sessionId: string, input: FinishInput) {
   await db.transaction('rw', [db.sessions, db.attendance, db.blocks], async () => {
     const now = Date.now();
     const blocks = await db.blocks.where('sessionId').equals(sessionId).toArray();
@@ -209,15 +239,16 @@ export async function finishSession(sessionId: number, input: FinishInput) {
       notes: input.notes?.trim() || undefined,
     });
   });
+  await compactSession(sessionId);
 }
 
 /** Vuelve a abrir un entrenamiento finalizado para seguir contando. */
-export async function reopenSession(sessionId: number) {
+export async function reopenSession(sessionId: string) {
   await db.sessions.update(sessionId, { status: 'en_curso', endedAt: undefined });
 }
 
 /** Borra sesiones con todo lo que cuelga de ellas. Llamar dentro de una transacción o sola. */
-export async function deleteSessionsCascade(sessionIds: number[]) {
+export async function deleteSessionsCascade(sessionIds: string[]) {
   if (sessionIds.length === 0) return;
   await db.transaction(
     'rw',
@@ -238,7 +269,7 @@ export async function deleteSessionsCascade(sessionIds: number[]) {
   );
 }
 
-export async function getActiveSession(teamId?: number) {
+export async function getActiveSession(teamId?: string) {
   const active = await db.sessions.where('status').equals('en_curso').toArray();
   return active.filter((s) => teamId == null || s.teamId === teamId).sort((a, b) => b.startedAt - a.startedAt)[0];
 }

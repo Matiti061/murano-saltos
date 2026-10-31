@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useSettings } from '../db/settings';
 import { useActiveTeam } from '../hooks/useActiveTeam';
+import { SyncStatus } from './SyncStatus';
 import { cx } from './ui';
 
 const NAV = [
@@ -19,7 +20,7 @@ export function TeamSelector({ className }: { className?: string }) {
   return (
     <select
       value={teamId ?? ''}
-      onChange={(e) => setTeamId(Number(e.target.value))}
+      onChange={(e) => setTeamId(e.target.value)}
       className={cx(
         'h-9 rounded-lg border border-orange-200 bg-orange-50 px-2 text-sm font-semibold text-orange-900 outline-none focus:ring-2 focus:ring-orange-300',
         className,
@@ -52,6 +53,9 @@ export function Layout() {
         <div className="px-4 pb-3">
           <TeamSelector className="w-full" />
           {teams && teams.length === 1 && <p className="text-center text-sm font-semibold text-slate-600">{team?.name}</p>}
+          <div className="mt-2 flex justify-center">
+            <SyncStatus />
+          </div>
         </div>
         <nav className="flex flex-1 flex-col gap-1 px-3">
           {NAV.map(({ to, label, icon: Icon, end }) => (
@@ -80,7 +84,10 @@ export function Layout() {
             <img src="./logo.jpg" alt="" className="h-10 w-10 object-contain" />
             <p className="truncate text-sm font-bold text-slate-900">{settings.clubName}</p>
           </div>
-          <TeamSelector className="max-w-[45vw]" />
+          <div className="flex items-center gap-2">
+            <TeamSelector className="max-w-[40vw]" />
+            <SyncStatus compact />
+          </div>
         </header>
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-5 pb-28 md:px-8 md:pt-8 md:pb-10">

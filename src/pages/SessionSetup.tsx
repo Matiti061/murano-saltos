@@ -45,7 +45,7 @@ export function SessionSetup() {
   const active = useLiveQuery(() => getActiveSession(team?.id), [team?.id]);
 
   const [type, setType] = useState<SessionType>('entrenamiento');
-  const [rows, setRows] = useState<Record<number, Row>>({});
+  const [rows, setRows] = useState<Record<string, Row>>({});
   const [step, setStep] = useState<'asistencia' | 'wellness'>('asistencia');
   const [wIndex, setWIndex] = useState(0);
   const [starting, setStarting] = useState(false);
@@ -66,7 +66,7 @@ export function SessionSetup() {
   if (teams && !team) return <NoTeam />;
   if (!players) return null;
 
-  const update = (id: number, changes: Partial<Row>) => setRows((r) => ({ ...r, [id]: { ...r[id], ...changes } }));
+  const update = (id: string, changes: Partial<Row>) => setRows((r) => ({ ...r, [id]: { ...r[id], ...changes } }));
 
   const start = async () => {
     if (present.length === 0) return toast('Marca al menos una jugadora como presente', 'warning');

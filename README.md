@@ -2,7 +2,9 @@
 
 App web para contar los saltos de cada jugadora en los entrenamientos de voleibol, guardar el histórico y detectar picos de carga que aumentan el riesgo de lesión.
 
-Funciona **en un solo dispositivo y sin internet** (tablet o móvil en el pabellón). Todos los datos se guardan en el propio navegador.
+Los datos se **sincronizan en la nube** ([Dexie Cloud](https://dexie.org/cloud/)): los mismos datos en el PC, otro ordenador o la tablet, desde cualquier red. También **funciona sin internet** en el pabellón; los cambios se suben solos al volver la conexión.
+
+Publicada en https://matiti061.github.io/murano-saltos/ (cada push a `main` se publica solo con GitHub Actions).
 
 ## Qué hace
 
@@ -31,11 +33,19 @@ npm run preview    # sirve dist/ para probarla
 
 Para que funcione sin conexión y se pueda «añadir a la pantalla de inicio» hace falta servirla por HTTPS. La carpeta `dist/` es una web estática: se puede publicar gratis en Netlify, Vercel, Cloudflare Pages o GitHub Pages. Después, desde la tablet: abrir la dirección → menú del navegador → «Instalar app» / «Añadir a pantalla de inicio».
 
+## Sincronización y acceso
+
+- Base de datos: `https://zyeafs1bj.dexie.cloud` (plan gratuito: hasta 3 usuarios y 100 MB).
+- **Acceso:** se entra con el correo de la cuenta del club y un código que llega por email; cada dispositivo lo pide una sola vez. Hay que usar **siempre el mismo correo**: otro correo tendría sus propios datos, separados.
+- La cuenta del club es de tipo *producción* (no caduca). Un correo nuevo entra como *evaluación* (30 días de uso); se puede pasar a producción en [manager.dexie.cloud](https://manager.dexie.cloud).
+- **Espacio:** mientras se cuenta se guarda cada toque (para poder deshacer); al finalizar el entrenamiento se resumen por ejercicio en la asistencia y se borran, para que la nube ocupe poco.
+- **Datos anteriores a la nube:** la base local antigua (`murano-saltos`) no se borra. Al iniciar sesión, la app ofrece subir sus datos una sola vez por dispositivo (sin el equipo de ejemplo).
+- Las credenciales de administración (`dexie-cloud.json`, `dexie-cloud.key`) están solo en el PC de desarrollo y **no se suben al repositorio**. Con ellas se usa la CLI: `npx dexie-cloud whitelist <origen>` para autorizar nuevas direcciones web, `npx dexie-cloud export` para una copia completa del servidor.
+
 ## Datos y privacidad
 
-- Los datos **solo existen en el dispositivo** donde se usa la app. Si se borran los datos del navegador o se pierde la tablet, se pierden.
-- Haz una **copia de seguridad semanal** (Ajustes → Copia de seguridad) y guárdala en un sitio privado: contiene datos de salud.
-- Para cambiar de dispositivo: exporta la copia en el viejo e impórtala en el nuevo.
+- Los datos incluyen información de salud (molestias, wellness): solo se accede con la cuenta del club. Si hay jugadoras menores de edad, conviene contar con el consentimiento de ellas o de sus familias.
+- Además de la nube, conviene descargar una **copia de seguridad** de vez en cuando (Ajustes → Copia de seguridad) y guardarla en un sitio privado. Importar una copia sustituye los datos en todos los dispositivos.
 
 ## Métricas
 
@@ -51,7 +61,7 @@ Son indicadores orientativos para apoyar al cuerpo técnico y médico, no un dia
 
 ```
 src/
-  db/          base de datos (Dexie/IndexedDB): tipos, esquema y operaciones
+  db/          base de datos (Dexie Cloud): tipos, esquema, operaciones y lectura de la base antigua
   lib/         métricas, informe, PDF, CSV, copias de seguridad, datos de ejemplo
   hooks/       equipo activo, cargas del equipo, wake lock, cronómetro
   components/  piezas de interfaz (tarjeta de conteo, formularios, gráficas…)
@@ -59,8 +69,10 @@ src/
   tests/       tests con Vitest
 ```
 
-Stack: Vite + React + TypeScript, Tailwind CSS, Dexie, Recharts, jsPDF y vite-plugin-pwa.
+Stack: Vite + React + TypeScript, Tailwind CSS, Dexie + Dexie Cloud, Recharts, jsPDF y vite-plugin-pwa.
 
 ## Datos de versiones anteriores
 
 Al abrir una versión nueva, la app adapta sola los datos guardados en el dispositivo sin borrar nada: en la versión 2 las posiciones «Colocadora» y «Receptora» pasaron a «Armadora» y «Punta receptora» y se quitó el dorsal. Las copias de seguridad antiguas se convierten igual al importarlas.
+
+En la versión 3 los datos pasaron a la nube con ids nuevos (de texto); la base local antigua se conserva como respaldo y se puede subir desde el aviso del Panel. Las copias de seguridad de cualquier versión se pueden importar.

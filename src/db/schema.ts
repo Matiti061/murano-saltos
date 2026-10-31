@@ -1,15 +1,9 @@
 import Dexie, { type EntityTable } from 'dexie';
-import {
-  normalizeLegacyPlayer,
-  type Attendance,
-  type Block,
-  type Complaint,
-  type JumpEvent,
-  type Player,
-  type Session,
-  type Settings,
-  type Team,
-} from './types';
+import dexieCloud from 'dexie-cloud-addon';
+import type { Attendance, Block, Complaint, JumpEvent, Player, Session, Settings, Team } from './types';
+
+/** Base de datos en Dexie Cloud (no es secreta: el acceso se controla con el inicio de sesión). */
+export const DEXIE_CLOUD_URL = 'https://zyeafs1bj.dexie.cloud';
 
 export type MuranoDB = Dexie & {
   teams: EntityTable<Team, 'id'>;
@@ -22,33 +16,29 @@ export type MuranoDB = Dexie & {
   settings: EntityTable<Settings, 'id'>;
 };
 
-export const db = new Dexie('murano-saltos') as MuranoDB;
+/**
+ * Base sincronizada con la nube. Los ids «@» se generan únicos en todos los dispositivos.
+ * La base local anterior («murano-saltos») se conserva intacta: ver legacy.ts.
+ */
+export const db = new Dexie('murano-nube', { addons: [dexieCloud] }) as MuranoDB;
 
-const STORES = {
-  teams: '++id, name',
-  players: '++id, teamId, archived',
-  sessions: '++id, teamId, date, status, [teamId+date]',
-  attendance: '++id, sessionId, playerId, &[sessionId+playerId]',
-  blocks: '++id, sessionId',
-  jumpEvents: '++id, sessionId, playerId, blockId, [sessionId+playerId]',
-  complaints: '++id, playerId, sessionId, date',
-  settings: 'id',
-};
+db.version(1).stores({
+  teams: '@id, name',
+  players: '@id, teamId, archived',
+  sessions: '@id, teamId, date, status, [teamId+date]',
+  attendance: '@id, sessionId, playerId, [sessionId+playerId]',
+  blocks: '@id, sessionId',
+  jumpEvents: '@id, sessionId, playerId, blockId, [sessionId+playerId]',
+  complaints: '@id, playerId, sessionId, date',
+  settings: '@id',
+});
 
-db.version(1).stores(STORES);
-
-// v2: posiciones renombradas (Colocadora → Armadora, Receptora → Punta receptora) y sin dorsales.
-// No se borra ningún otro dato.
-db.version(2)
-  .stores(STORES)
-  .upgrade((tx) =>
-    tx
-      .table('players')
-      .toCollection()
-      .modify((p) => {
-        normalizeLegacyPlayer(p);
-      }),
-  );
+db.cloud.configure({
+  databaseUrl: DEXIE_CLOUD_URL,
+  requireAuth: true,
+  customLoginGui: true,
+  socialAuth: false,
+});
 
 export const ALL_TABLES = [
   'teams',
