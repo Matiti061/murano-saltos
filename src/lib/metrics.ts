@@ -142,22 +142,41 @@ export function limitState(jumps: number, limit: number | undefined, warnPct: nu
   return 'ok';
 }
 
-export const WELLNESS_ITEMS: { key: keyof Wellness; label: string; low: string; high: string }[] = [
+export type CoreWellnessKey = 'sleep' | 'fatigue' | 'soreness' | 'stress';
+export type ExtraWellnessKey = 'sleepHours' | 'mood' | 'readiness';
+
+/** Los 4 ítems que suman el total /20. */
+export const WELLNESS_ITEMS: { key: CoreWellnessKey; label: string; low: string; high: string }[] = [
   { key: 'sleep', label: 'Sueño', low: 'Muy malo', high: 'Excelente' },
   { key: 'fatigue', label: 'Fatiga', low: 'Agotada', high: 'Muy fresca' },
   { key: 'soreness', label: 'Dolor muscular', low: 'Mucho dolor', high: 'Sin dolor' },
   { key: 'stress', label: 'Estrés', low: 'Muy estresada', high: 'Muy relajada' },
 ];
 
+/** Ítems opcionales del formulario del profesor (no suman al total, sí generan alertas). */
+export const WELLNESS_EXTRA_ITEMS: { key: ExtraWellnessKey; label: string; low: string; high: string }[] = [
+  { key: 'sleepHours', label: 'Horas de sueño', low: 'Menos de 5 h', high: 'Más de 8 h' },
+  { key: 'mood', label: 'Ánimo', low: 'Muy desanimada', high: 'Muy animada' },
+  { key: 'readiness', label: 'Preparación', low: 'Nada preparada', high: 'Totalmente preparada' },
+];
+
+/** Texto de las 5 opciones de horas de sueño (1 a 5). */
+export const SLEEP_HOURS_LABELS = ['', '< 5 h', '5–6 h', '6–7 h', '7–8 h', '> 8 h'];
+
 export function wellnessTotal(w?: Wellness | null): number | null {
   if (!w) return null;
   return w.sleep + w.fatigue + w.soreness + w.stress;
 }
 
-/** Ítems de wellness iguales o por debajo del umbral. */
+/** Ítems de wellness iguales o por debajo del umbral (incluidos los opcionales; < 6 h de sueño cuenta como bajo). */
 export function wellnessLowItems(w: Wellness | null | undefined, itemThreshold: number): string[] {
   if (!w) return [];
-  return WELLNESS_ITEMS.filter((i) => w[i.key] <= itemThreshold).map((i) => i.label);
+  const core = WELLNESS_ITEMS.filter((i) => w[i.key] <= itemThreshold).map((i) => i.label);
+  const extra = WELLNESS_EXTRA_ITEMS.filter((i) => {
+    const v = w[i.key];
+    return v != null && (i.key === 'sleepHours' ? v <= 2 : v <= itemThreshold);
+  }).map((i) => i.label);
+  return [...core, ...extra];
 }
 
 /** Puntos por debajo de su media personal a partir de los cuales se avisa. */

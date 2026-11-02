@@ -1,9 +1,10 @@
-import { Archive, HeartPulse, Plus, Users } from 'lucide-react';
+import { Archive, ClipboardCopy, HeartPulse, Plus, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AcwrBadge } from '../components/AcwrBadge';
 import { PositionBubble, PositionHeader, StatusBadge } from '../components/PlayerBits';
 import { PlayerForm } from '../components/PlayerForm';
+import { useToast } from '../components/Toast';
 import { Badge, Button, Card, EmptyState, PageHeader } from '../components/ui';
 import { groupByPosition } from '../db/players';
 import { useActiveTeam } from '../hooks/useActiveTeam';
@@ -14,6 +15,18 @@ export function Players() {
   const { team, teams } = useActiveTeam();
   const [showArchived, setShowArchived] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+  const toast = useToast();
+
+  /** Lista para pegar como opciones del desplegable de Google Forms (una por línea). */
+  const copyNames = async () => {
+    const names = (summary ?? []).filter((s) => !s.player.archived).map((s) => s.player.name);
+    try {
+      await navigator.clipboard.writeText(names.join('\n'));
+      toast(`${names.length} nombres copiados: pégalos en las opciones del desplegable del formulario`, 'success');
+    } catch {
+      toast('No se pudo copiar. Prueba desde otro navegador.', 'error');
+    }
+  };
   const summary = useTeamLoad(team?.id, showArchived);
 
   if (teams && !team) return <NoTeam />;
@@ -26,6 +39,9 @@ export function Players() {
         subtitle={team ? `${team.name} · ${visible.filter((s) => !s.player.archived).length} jugadoras` : undefined}
         actions={
           <>
+            <Button variant="ghost" onClick={copyNames} title="Para el desplegable de nombres de Google Forms">
+              <ClipboardCopy size={18} /> Copiar nombres
+            </Button>
             <Button variant="ghost" onClick={() => setShowArchived(!showArchived)}>
               <Archive size={18} />
               {showArchived ? 'Ocultar archivadas' : 'Ver archivadas'}

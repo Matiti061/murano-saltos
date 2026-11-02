@@ -1,5 +1,6 @@
 import { todayISO } from '../lib/format';
 import { countEvents, mergeBlockJumps, totalJumps } from '../lib/jumps';
+import { applyFormResponses } from './forms';
 import { db } from './schema';
 import type { Attendance, AttendanceStatus, SessionType, Wellness } from './types';
 
@@ -17,7 +18,7 @@ export async function createLiveSession(
   type: SessionType,
   drafts: AttendanceDraft[],
 ): Promise<string> {
-  return db.transaction('rw', [db.sessions, db.attendance], async () => {
+  const created = await db.transaction('rw', [db.sessions, db.attendance], async () => {
     const sessionId = (await db.sessions.add({
       teamId,
       date: todayISO(),
@@ -39,6 +40,9 @@ export async function createLiveSession(
     );
     return sessionId;
   });
+  // Wellness y molestias que las jugadoras ya enviaron por formulario hoy.
+  await applyFormResponses(teamId, [todayISO()]);
+  return created;
 }
 
 export interface ManualRow {
@@ -58,7 +62,7 @@ export async function createManualSession(input: {
   notes?: string;
   rows: ManualRow[];
 }): Promise<string> {
-  return db.transaction('rw', [db.sessions, db.attendance], async () => {
+  const created = await db.transaction('rw', [db.sessions, db.attendance], async () => {
     const startedAt = new Date(`${input.date}T18:00:00`).getTime();
     const sessionId = (await db.sessions.add({
       teamId: input.teamId,
@@ -87,6 +91,8 @@ export async function createManualSession(input: {
     );
     return sessionId;
   });
+  await applyFormResponses(input.teamId, [input.date]);
+  return created;
 }
 
 async function getAttendance(sessionId: string, playerId: string) {

@@ -17,6 +17,7 @@ Publicada en https://matiti061.github.io/murano-saltos/ (cada push a `main` se p
 - **Alertas**: ACWR de saltos y de carga interna, límites superados, wellness bajo y molestias activas.
 - **Evolución**: gráficas por jugadora y por equipo, y semáforo de carga.
 - **Registro manual** para pasar entrenamientos contados en papel.
+- **Encuestas de Google Forms**: se sube el archivo de respuestas (el .zip de Forms, o .csv/.xlsx de la hoja) y la app reconoce el formulario (pre-entreno o RPE), cada pregunta y cada jugadora, y coloca los datos en su entrenamiento: wellness (con horas de sueño, ánimo y preparación), molestias (crea la molestia en su ficha), mensajes al entrenador y RPE. Si aún no hay entrenamiento ese día, quedan pendientes y se aplican al empezarlo. Subir otra vez el mismo archivo no duplica nada; los nombres que hubo que elegir a mano se recuerdan. En «Jugadoras → Copiar nombres» se copia la lista para el desplegable del formulario.
 - **Copia de seguridad** (exportar/importar) y exportación de todo el histórico a CSV.
 
 ## Uso

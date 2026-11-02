@@ -17,6 +17,8 @@ import { SettingsPage } from './pages/Settings';
 // Las pantallas con gráficas cargan aparte para que la app arranque antes.
 const PlayerDetail = lazy(() => import('./pages/PlayerDetail').then((m) => ({ default: m.PlayerDetail })));
 const Stats = lazy(() => import('./pages/Stats').then((m) => ({ default: m.Stats })));
+// Lectores de CSV/Excel/ZIP solo cuando se usan.
+const FormsPage = lazy(() => import('./pages/Forms').then((m) => ({ default: m.FormsPage })));
 
 export function App() {
   return (
@@ -38,6 +40,7 @@ export function App() {
                   <Route path="historial" element={<History />} />
                   <Route path="historial/manual" element={<ManualEntry />} />
                   <Route path="evolucion" element={<Stats />} />
+                  <Route path="encuestas" element={<FormsPage />} />
                   <Route path="ajustes" element={<SettingsPage />} />
                   <Route path="*" element={<Dashboard />} />
                 </Route>

@@ -1,4 +1,4 @@
-import { CalendarDays, ChartLine, Home, Settings, Users } from 'lucide-react';
+import { CalendarDays, ChartLine, ClipboardList, Home, Settings, Users } from 'lucide-react';
 import { Suspense } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useSettings } from '../db/settings';
@@ -10,6 +10,7 @@ const NAV = [
   { to: '/', label: 'Panel', icon: Home, end: true },
   { to: '/jugadoras', label: 'Jugadoras', icon: Users },
   { to: '/historial', label: 'Historial', icon: CalendarDays },
+  { to: '/encuestas', label: 'Encuestas', icon: ClipboardList },
   { to: '/evolucion', label: 'Evolución', icon: ChartLine },
   { to: '/ajustes', label: 'Ajustes', icon: Settings },
 ];
@@ -97,14 +98,14 @@ export function Layout() {
         </main>
 
         {/* Menú inferior en móvil */}
-        <nav className="safe-bottom fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white md:hidden">
+        <nav className="safe-bottom fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-slate-200 bg-white md:hidden">
           {NAV.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
               className={({ isActive }) =>
-                cx('flex flex-col items-center gap-0.5 py-2 text-[11px] font-semibold', isActive ? 'text-orange-600' : 'text-slate-500')
+                cx('flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold sm:text-[11px]', isActive ? 'text-orange-600' : 'text-slate-500')
               }
             >
               <Icon size={22} />

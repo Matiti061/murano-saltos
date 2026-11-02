@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { AcwrBadge } from '../components/AcwrBadge';
 import { PositionBubble } from '../components/PlayerBits';
 import { LegacyImport } from '../components/LegacyImport';
+import { TodayForms } from '../components/TodayForms';
 import { useToast } from '../components/Toast';
 import { Badge, Button, ButtonLink, Card, CardHeader, Disclaimer, Input, StatTile } from '../components/ui';
 import { complaintLabel } from '../db/complaints';
@@ -207,6 +208,8 @@ export function Dashboard() {
           <ShieldCheck size={14} /> Consejo: instala la app en la pantalla de inicio para que el navegador no borre los datos.
         </p>
       )}
+
+      <TodayForms teamId={team.id!} />
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile label="Saltos del equipo (7 días)" value={fmtNum(jumps7d)} />

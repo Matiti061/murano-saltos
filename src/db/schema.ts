@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 import dexieCloud from 'dexie-cloud-addon';
-import type { Attendance, Block, Complaint, JumpEvent, Player, Session, Settings, Team } from './types';
+import type { Attendance, Block, Complaint, FormResponse, JumpEvent, Player, Session, Settings, Team } from './types';
 
 /** Base de datos en Dexie Cloud (no es secreta: el acceso se controla con el inicio de sesión). */
 export const DEXIE_CLOUD_URL = 'https://zyeafs1bj.dexie.cloud';
@@ -14,6 +14,7 @@ export type MuranoDB = Dexie & {
   jumpEvents: EntityTable<JumpEvent, 'id'>;
   complaints: EntityTable<Complaint, 'id'>;
   settings: EntityTable<Settings, 'id'>;
+  formResponses: EntityTable<FormResponse, 'id'>;
 };
 
 /**
@@ -33,6 +34,11 @@ db.version(1).stores({
   settings: '@id',
 });
 
+// v2: respuestas importadas de Google Forms (pre-entreno y RPE).
+db.version(2).stores({
+  formResponses: '@id, teamId, playerId, date, kind, [playerId+date]',
+});
+
 db.cloud.configure({
   databaseUrl: DEXIE_CLOUD_URL,
   requireAuth: true,
@@ -49,6 +55,7 @@ export const ALL_TABLES = [
   'jumpEvents',
   'complaints',
   'settings',
+  'formResponses',
 ] as const;
 export type TableName = (typeof ALL_TABLES)[number];
 

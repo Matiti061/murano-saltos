@@ -79,6 +79,7 @@ export function parseBackup(text: string): ParsedBackup {
     jumpEvents: file.version >= 2 ? (unpackEvents(rows('jumpEvents') as EventTuple[]) as never[]) : rows('jumpEvents'),
     complaints: rows('complaints'),
     settings: rows('settings'),
+    formResponses: rows('formResponses'),
   };
   return { exportedAt: file.exportedAt, dataset, summary: summarize(dataset) };
 }
@@ -127,6 +128,11 @@ export async function exportLoadsCsv() {
       a.wellness?.soreness,
       a.wellness?.stress,
       wellnessTotal(a.wellness),
+      a.wellness?.sleepHours,
+      a.wellness?.mood,
+      a.wellness?.readiness,
+      a.discomfort,
+      a.playerNote,
     ]);
   const head: CsvCell[] = [
     'Fecha',
@@ -146,6 +152,11 @@ export async function exportLoadsCsv() {
     'Dolor muscular',
     'Estrés',
     'Wellness total',
+    'Horas de sueño (1-5)',
+    'Ánimo',
+    'Preparación',
+    'Molestia (0-3)',
+    'Mensaje al entrenador',
   ];
   downloadText(toCsv([head, ...rows]), `murano-cargas-${todayISO()}.csv`, 'text/csv;charset=utf-8');
 }

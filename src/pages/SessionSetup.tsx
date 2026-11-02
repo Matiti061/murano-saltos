@@ -8,8 +8,11 @@ import { Badge, Button, ButtonLink, Card, EmptyState, Input, PageHeader, Segment
 import { isWellnessComplete, WellnessForm } from '../components/WellnessForm';
 import { groupByPosition, sortPlayers } from '../db/players';
 import { db } from '../db/schema';
+import { latestResponsesOn } from '../db/forms';
 import { createLiveSession, getActiveSession, isPresent } from '../db/sessions';
-import { ATTENDANCE_LABEL, type AttendanceStatus, type Player, type SessionType, type Wellness } from '../db/types';
+import { ATTENDANCE_LABEL, type AttendanceStatus, type FormResponse, type Player, type SessionType, type Wellness } from '../db/types';
+import { todayISO } from '../lib/format';
+import { DISCOMFORT_LABEL } from '../lib/forms/zones';
 import { useActiveTeam } from '../hooks/useActiveTeam';
 import { NoTeam } from './Dashboard';
 
@@ -50,16 +53,27 @@ export function SessionSetup() {
   const [wIndex, setWIndex] = useState(0);
   const [starting, setStarting] = useState(false);
 
+  // Respuestas de la encuesta pre-entreno de hoy (si se subieron ya).
+  const formToday = useLiveQuery(
+    async () => {
+      if (!team) return new Map<string, FormResponse>();
+      const list = await latestResponsesOn(team.id!, todayISO());
+      return new Map(list.filter((r) => r.kind === 'pre').map((r) => [r.playerId, r]));
+    },
+    [team?.id],
+  );
+
   useEffect(() => {
-    if (!players) return;
+    if (!players || !formToday) return;
     setRows((prev) => {
       const next = { ...prev };
       for (const p of players) {
-        next[p.id!] ??= { status: p.status === 'lesionada' ? 'lesionada' : 'presente', limit: '', wellness: {} };
+        const fromForm = formToday.get(p.id!)?.values.wellness ?? {};
+        next[p.id!] ??= { status: p.status === 'lesionada' ? 'lesionada' : 'presente', limit: '', wellness: { ...fromForm } };
       }
       return next;
     });
-  }, [players]);
+  }, [players, formToday]);
 
   const present = useMemo(() => (players ?? []).filter((p) => rows[p.id!] && isPresent(rows[p.id!].status)), [players, rows]);
 
@@ -157,7 +171,15 @@ export function SessionSetup() {
 
   return (
     <>
-      <PageHeader title="Nuevo entrenamiento" subtitle={team?.name} />
+      <PageHeader
+        title="Nuevo entrenamiento"
+        subtitle={team?.name}
+        actions={
+          <ButtonLink to="/encuestas" variant="secondary" size="sm">
+            <ClipboardList size={16} /> Subir encuesta pre-entreno
+          </ButtonLink>
+        }
+      />
 
       {active && (
         <Card className="mb-4 flex flex-wrap items-center justify-between gap-3 border-amber-300 bg-amber-50 p-4">
@@ -212,6 +234,10 @@ export function SessionSetup() {
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="font-semibold text-slate-900">{p.name}</span>
                         <StatusBadge status={p.status} />
+                        {formToday?.has(p.id!) && <Badge tone="green">Encuesta ✓</Badge>}
+                        {formToday?.get(p.id!)?.values.discomfort ? (
+                          <Badge tone="amber">{DISCOMFORT_LABEL[formToday.get(p.id!)!.values.discomfort!]}</Badge>
+                        ) : null}
                       </div>
                     </div>
                     <Segmented size="sm" value={r.status} onChange={(s) => update(p.id!, { status: s })} options={STATUS_OPTIONS} />

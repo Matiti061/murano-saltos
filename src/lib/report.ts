@@ -92,6 +92,10 @@ export interface SessionReportData {
     convened: number;
   };
   complaints: { complaint: Complaint; player?: Player }[];
+  /** Mensajes que las jugadoras dejaron al entrenador en la encuesta pre-entreno. */
+  messages: { player: Player; note: string }[];
+  /** true si alguna jugadora tiene datos de la encuesta del profesor (horas de sueño, ánimo, preparación, molestia). */
+  hasFormDetail: boolean;
   alerts: ReportAlert[];
 }
 
@@ -190,6 +194,15 @@ export function buildReport(raw: ReportRaw): SessionReportData {
       convened: rows.length + absent.length,
     },
     complaints,
+    messages: raw.attendance
+      .filter((a) => a.playerNote)
+      .map((a) => ({ player: playersById.get(a.playerId)!, note: a.playerNote! }))
+      .filter((m) => m.player)
+      .sort((a, b) => comparePlayers(a.player, b.player)),
+    hasFormDetail: rows.some((r) => {
+      const w = r.attendance.wellness;
+      return w?.sleepHours != null || w?.mood != null || w?.readiness != null || r.attendance.discomfort != null;
+    }),
     alerts: buildAlerts(rows, complaints),
   };
 }

@@ -3,7 +3,8 @@ import autoTable, { type CellHookData } from 'jspdf-autotable';
 import { complaintLabel } from '../../db/complaints';
 import { ATTENDANCE_LABEL, SESSION_TYPE_LABEL } from '../../db/types';
 import { fmtDateLong, fmtNum, fmtTime, slug } from '../format';
-import type { AcwrStatus, LimitState } from '../metrics';
+import { SLEEP_HOURS_LABELS, type AcwrStatus, type LimitState } from '../metrics';
+import { DISCOMFORT_LABEL } from '../forms/zones';
 import { playerLabel, type SessionReportData } from '../report';
 
 type RGB = [number, number, number];
@@ -276,6 +277,52 @@ export function createSessionPdf(data: SessionReportData, defaultLogo?: string):
     y += legend.length * 3 + 6;
   }
 
+  // ---- Encuesta pre-entreno (formulario del profesor) ----
+  if (data.hasFormDetail) {
+    y = sectionTitle('Encuesta pre-entreno', y, 40);
+    const score = (v?: number) => (v == null ? '–' : String(v));
+    autoTable(doc, {
+      startY: y,
+      margin: { left: MARGIN, right: MARGIN },
+      head: [['Jugadora', 'Horas sueño', 'Calidad sueño', 'Fatiga', 'Dolor musc.', 'Estrés', 'Ánimo', 'Preparación', 'Molestia']],
+      body: data.rows.map((r) => {
+        const w = r.attendance.wellness;
+        return [
+          r.player.name,
+          w?.sleepHours != null ? SLEEP_HOURS_LABELS[w.sleepHours] : '–',
+          score(w?.sleep),
+          score(w?.fatigue),
+          score(w?.soreness),
+          score(w?.stress),
+          score(w?.mood),
+          score(w?.readiness),
+          r.attendance.discomfort != null ? DISCOMFORT_LABEL[r.attendance.discomfort] : '–',
+        ];
+      }),
+      styles: { fontSize: 7.5, cellPadding: 1.4, textColor: TEXT, lineColor: BORDER, lineWidth: 0.1, halign: 'center' },
+      headStyles: { fillColor: BRAND_DARK, textColor: 255, fontSize: 7 },
+      columnStyles: { 0: { halign: 'left', cellWidth: 38 }, 8: { cellWidth: 32 } },
+      didParseCell: (hook: CellHookData) => {
+        if (hook.section !== 'body') return;
+        const r = data.rows[hook.row.index];
+        const w = r.attendance.wellness;
+        const keys = [null, 'sleepHours', 'sleep', 'fatigue', 'soreness', 'stress', 'mood', 'readiness'] as const;
+        const key = keys[hook.column.index];
+        const v = key ? w?.[key] : undefined;
+        if (v != null && v <= (key === 'sleepHours' ? 2 : settings.wellnessItemAlert)) hook.cell.styles.fillColor = ACWR_FILL.alto;
+        if (hook.column.index === 8 && (r.attendance.discomfort ?? 0) > 0) {
+          hook.cell.styles.fillColor = (r.attendance.discomfort ?? 0) >= 3 ? ACWR_FILL.muy_alto : ACWR_FILL.alto;
+        }
+      },
+    });
+    y = lastY(doc, y) + 3;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...MUTED);
+    doc.text('Escala 1-5 (5 = mejor estado). En ámbar, los valores bajos.', MARGIN, y + 1);
+    y += 7;
+  }
+
   // ---- Saltos por ejercicio (matriz) ----
   if (data.blocks.length > 0 && data.rows.length > 0) {
     y = sectionTitle('Saltos por ejercicio y jugadora', y, Math.min(90, 20 + (data.rows.length + 2) * 6));
@@ -384,6 +431,21 @@ export function createSessionPdf(data: SessionReportData, defaultLogo?: string):
       columnStyles: { 3: { halign: 'center' }, 4: { cellWidth: 70 } },
     });
     y = lastY(doc, y) + 8;
+  }
+
+  // ---- Mensajes de las jugadoras ----
+  if (data.messages.length > 0) {
+    y = sectionTitle('Mensajes de las jugadoras', y);
+    doc.setFontSize(8.5);
+    for (const m of data.messages) {
+      const lines = doc.splitTextToSize(`${m.player.name}: «${m.note}»`, contentW) as string[];
+      y = ensureSpace(y, lines.length * 4 + 1);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...TEXT);
+      doc.text(lines, MARGIN, y + 1);
+      y += lines.length * 4 + 1.5;
+    }
+    y += 4;
   }
 
   // ---- Ausencias ----

@@ -5,6 +5,7 @@ import {
   type Attendance,
   type Block,
   type Complaint,
+  type FormResponse,
   type JumpEvent,
   type Player,
   type Session,
@@ -32,6 +33,8 @@ export interface Dataset {
   jumpEvents: Row<JumpEvent>[];
   complaints: Row<Complaint>[];
   settings: Partial<Settings>[];
+  /** Respuestas de Google Forms (copias v3+). */
+  formResponses?: Row<FormResponse>[];
 }
 
 export interface DatasetSummary {
@@ -60,6 +63,7 @@ export function withoutDemo(ds: Dataset): Dataset {
     blocks: ds.blocks.filter((b) => sessionIds.has(k(b.sessionId))),
     jumpEvents: ds.jumpEvents.filter((e) => sessionIds.has(k(e.sessionId))),
     complaints: ds.complaints.filter((c) => playerIds.has(k(c.playerId))),
+    formResponses: ds.formResponses?.filter((r) => playerIds.has(k(r.playerId))),
     settings: ds.settings,
   };
 }
@@ -90,7 +94,7 @@ export async function importDataset(ds: Dataset): Promise<DatasetSummary> {
 
   await db.transaction(
     'rw',
-    [db.teams, db.players, db.sessions, db.attendance, db.blocks, db.jumpEvents, db.complaints, db.settings],
+    [db.teams, db.players, db.sessions, db.attendance, db.blocks, db.jumpEvents, db.complaints, db.settings, db.formResponses],
     async () => {
       const teamKeys = (await db.teams.bulkAdd(ds.teams.map((t) => strip(t) as Team), { allKeys: true })) as string[];
       const teamMap = new Map(ds.teams.map((t, i) => [k(t.id), teamKeys[i]]));
@@ -176,6 +180,17 @@ export async function importDataset(ds: Dataset): Promise<DatasetSummary> {
           return { ...rest, playerId: playerMap.get(k(c.playerId))!, ...(sessionId ? { sessionId } : {}) } as Complaint;
         }),
       );
+
+      const responses = (ds.formResponses ?? []).filter((r) => teamMap.has(k(r.teamId)) && playerMap.has(k(r.playerId)));
+      if (responses.length) {
+        await db.formResponses.bulkAdd(
+          responses.map((r) => {
+            const sessionId = r.sessionId == null ? undefined : sessionMap.get(k(r.sessionId));
+            const { sessionId: _s, ...rest } = strip(r);
+            return { ...rest, teamId: teamMap.get(k(r.teamId))!, playerId: playerMap.get(k(r.playerId))!, ...(sessionId ? { sessionId } : {}) } as FormResponse;
+          }),
+        );
+      }
 
       // Ajustes: solo si la nube todavía no tiene (no se pisan los de otro dispositivo).
       const incoming = ds.settings[0];

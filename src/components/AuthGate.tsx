@@ -208,7 +208,17 @@ export function AuthGate({ children }: { children: ReactNode }) {
     <>
       {children}
       {interaction && (
-        <Modal open title={interaction.type === 'logout-confirmation' ? 'Cerrar sesión' : 'Aviso'} onClose={interaction.onCancel}>
+        <Modal
+          open
+          title={
+            interaction.type === 'logout-confirmation'
+              ? 'Cerrar sesión'
+              : interaction.type === 'email' || interaction.type === 'otp'
+                ? 'Vuelve a iniciar sesión'
+                : 'Aviso'
+          }
+          onClose={interaction.onCancel}
+        >
           <InteractionForm interaction={interaction} />
         </Modal>
       )}

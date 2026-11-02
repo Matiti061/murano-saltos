@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { AlertTriangle, ArrowLeft, Check, FileDown, FileSpreadsheet, HeartPulse, Pencil, Play, Share2, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, FileDown, FileSpreadsheet, HeartPulse, MessageSquare, Pencil, Play, Share2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AcwrBadge } from '../components/AcwrBadge';
@@ -19,9 +19,28 @@ import { loadClubLogo } from '../lib/clubLogo';
 import { sessionCsv } from '../lib/csv';
 import { canShareFiles, downloadBlob, downloadText, shareFile } from '../lib/download';
 import { capitalize, fmtDateLong, fmtNum, fmtTime, slug } from '../lib/format';
+import { DISCOMFORT_LABEL } from '../lib/forms/zones';
+import { SLEEP_HOURS_LABELS } from '../lib/metrics';
 import { playerLabel, type SessionReportData } from '../lib/report';
 
 const LIMIT_TEXT = { none: '', ok: 'text-emerald-700', warn: 'text-amber-700 font-bold', over: 'text-red-700 font-bold' };
+
+/** Detalle del wellness para el tooltip (incluye los ítems de la encuesta del profesor). */
+function wellnessDetail(att: Attendance): string | undefined {
+  const w = att.wellness;
+  if (!w) return undefined;
+  const parts = [
+    w.sleepHours != null ? `Horas de sueño: ${SLEEP_HOURS_LABELS[w.sleepHours]}` : '',
+    `Calidad del sueño ${w.sleep}`,
+    `Fatiga ${w.fatigue}`,
+    `Dolor muscular ${w.soreness}`,
+    `Estrés ${w.stress}`,
+    w.mood != null ? `Ánimo ${w.mood}` : '',
+    w.readiness != null ? `Preparación ${w.readiness}` : '',
+    att.discomfort ? DISCOMFORT_LABEL[att.discomfort] : '',
+  ];
+  return parts.filter(Boolean).join(' · ');
+}
 
 async function buildPdfBlob(data: SessionReportData) {
   const { createSessionPdf, sessionPdfFilename } = await import('../lib/pdf/sessionReport');
@@ -269,9 +288,13 @@ export function SessionReport() {
                         setWellnessFor({ attendance: r.attendance, player: r.player });
                       }}
                       className={cx(editing && 'rounded-md underline decoration-dotted')}
+                      title={wellnessDetail(r.attendance)}
                     >
                       {r.wellnessTotal != null ? (
-                        <Badge tone={r.wellnessLow.length || r.wellnessDrop ? 'amber' : 'slate'}>{r.wellnessTotal}/20</Badge>
+                        <Badge tone={r.wellnessLow.length || r.wellnessDrop ? 'amber' : 'slate'}>
+                          {r.wellnessTotal}/20
+                          {r.wellnessLow.length > 0 && <span className="font-medium">· {r.wellnessLow.join(', ')}</span>}
+                        </Badge>
                       ) : editing ? (
                         <span className="text-orange-700">Añadir</span>
                       ) : (
@@ -338,6 +361,30 @@ export function SessionReport() {
               {data.rows.reduce((a, r) => a + r.noBlock, 0)} saltos se contaron fuera de un ejercicio o se ajustaron a mano.
             </p>
           )}
+        </Card>
+      )}
+
+      {data.messages.length > 0 && (
+        <Card className="mb-5">
+          <CardHeader
+            title={
+              <span className="inline-flex items-center gap-2">
+                <MessageSquare size={18} className="text-orange-600" /> Mensajes de las jugadoras
+              </span>
+            }
+            subtitle="De la encuesta pre-entreno"
+          />
+          <ul className="divide-y divide-slate-100">
+            {data.messages.map((m) => (
+              <li key={m.player.id} className="flex items-start gap-3 px-4 py-2.5 text-sm">
+                <PositionBubble player={m.player} size="sm" />
+                <div>
+                  <p className="font-semibold text-slate-900">{m.player.name}</p>
+                  <p className="text-slate-700">«{m.note}»</p>
+                </div>
+              </li>
+            ))}
+          </ul>
         </Card>
       )}
 

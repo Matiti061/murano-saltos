@@ -69,12 +69,20 @@ export const ATTENDANCE_LABEL: Record<AttendanceStatus, string> = {
   lesionada: 'Lesionada',
 };
 
-/** Cada ítem va de 1 a 5, donde 5 es siempre lo mejor. */
+/**
+ * Cada ítem va de 1 a 5, donde 5 es siempre lo mejor. El total /20 usa solo los 4 primeros
+ * (sueño = calidad del sueño); los demás vienen del formulario del profesor y son opcionales.
+ */
 export interface Wellness {
   sleep: number;
   fatigue: number;
   soreness: number;
   stress: number;
+  /** Horas dormidas: 1 = menos de 5 h … 5 = más de 8 h. */
+  sleepHours?: number;
+  mood?: number;
+  /** Qué tan preparada se siente para entrenar. */
+  readiness?: number;
 }
 
 export interface Team {
@@ -93,6 +101,8 @@ export interface Player {
   /** Límite de saltos por sesión (opcional). */
   jumpLimit?: number;
   notes?: string;
+  /** Otros nombres con los que aparece en los formularios de Google (se aprenden al importar). */
+  aliases?: string[];
   /** 0 | 1 porque IndexedDB no indexa booleanos. */
   archived: 0 | 1;
   createdAt: number;
@@ -131,6 +141,45 @@ export interface Attendance {
   jumps: number;
   /** Límite específico para esta sesión (si no, se usa el de la jugadora). */
   jumpLimit?: number;
+  /** Mensaje de la jugadora al entrenador (formulario pre-entreno). */
+  playerNote?: string;
+  /** Molestia declarada antes de entrenar: 0 ninguna, 1 leve, 2 moderada, 3 dolor importante o lesión. */
+  discomfort?: number;
+  /** Hora de las respuestas de formulario aplicadas a esta asistencia. */
+  preFormAt?: number;
+  rpeFormAt?: number;
+}
+
+export type FormKind = 'pre' | 'rpe';
+export const FORM_KIND_LABEL: Record<FormKind, string> = {
+  pre: 'Pre-entrenamiento',
+  rpe: 'RPE (post-entrenamiento)',
+};
+
+/** Valores normalizados de una respuesta de formulario. */
+export interface FormValues {
+  wellness?: Partial<Wellness>;
+  discomfort?: number;
+  discomfortZone?: string;
+  note?: string;
+  rpe?: number;
+}
+
+/** Una respuesta de Google Forms ya identificada con su jugadora. */
+export interface FormResponse {
+  id?: string;
+  teamId: string;
+  playerId: string;
+  /** yyyy-MM-dd de la respuesta. */
+  date: string;
+  kind: FormKind;
+  submittedAt: number;
+  values: FormValues;
+  /** Texto original por pregunta, para consultarlo tal cual. */
+  raw: Record<string, string>;
+  /** Sesión a la que se aplicó (si ya existía). */
+  sessionId?: string;
+  importedAt: number;
 }
 
 export interface Block {
@@ -184,6 +233,8 @@ export interface Complaint {
   physioNotes?: string;
   /** yyyy-MM-dd cuando se da por resuelta. */
   resolvedDate?: string;
+  /** Si la creó la importación de un formulario pre-entreno (para actualizarla sin duplicar). */
+  fromForm?: boolean;
   createdAt: number;
 }
 
@@ -200,6 +251,8 @@ export interface Settings {
   limitWarnPct: number;
   exercises: string[];
   lastBackupAt?: number;
+  /** Correcciones de columnas de los formularios: texto normalizado de la pregunta → campo. */
+  formColumnMap?: Record<string, string>;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
