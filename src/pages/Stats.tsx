@@ -106,7 +106,7 @@ export function Stats() {
                   </td>
                   <td className="px-3 py-2 text-center">
                     {s.recentWellness ? (
-                      <Badge tone={s.recentWellness.low.length || s.recentWellness.drop ? 'amber' : 'slate'}>{s.recentWellness.total}/20</Badge>
+                      <Badge tone={s.recentWellness.low.length || s.recentWellness.drop ? 'amber' : 'slate'}>{s.recentWellness.total}/10</Badge>
                     ) : (
                       '–'
                     )}

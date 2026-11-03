@@ -1,4 +1,4 @@
-import { CalendarDays, ChartLine, ClipboardList, Home, Settings, Users } from 'lucide-react';
+import { CalendarDays, ChartLine, ClipboardList, HeartPulse, Home, Settings, Users } from 'lucide-react';
 import { Suspense } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useSettings } from '../db/settings';
@@ -10,6 +10,7 @@ const NAV = [
   { to: '/', label: 'Panel', icon: Home, end: true },
   { to: '/jugadoras', label: 'Jugadoras', icon: Users },
   { to: '/historial', label: 'Historial', icon: CalendarDays },
+  { to: '/wellness', label: 'Wellness', icon: HeartPulse },
   { to: '/encuestas', label: 'Encuestas', icon: ClipboardList },
   { to: '/evolucion', label: 'Evolución', icon: ChartLine },
   { to: '/ajustes', label: 'Ajustes', icon: Settings },
@@ -98,7 +99,7 @@ export function Layout() {
         </main>
 
         {/* Menú inferior en móvil */}
-        <nav className="safe-bottom fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-slate-200 bg-white md:hidden">
+        <nav className="safe-bottom fixed inset-x-0 bottom-0 z-30 grid grid-cols-7 border-t border-slate-200 bg-white md:hidden">
           {NAV.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}

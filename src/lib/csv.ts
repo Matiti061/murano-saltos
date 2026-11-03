@@ -1,6 +1,6 @@
 import { ATTENDANCE_LABEL } from '../db/types';
 import { fmtTime } from './format';
-import { ACWR_LABEL } from './metrics';
+import { ACWR_LABEL, itemScore, WELLNESS_QUESTIONS } from './metrics';
 import type { SessionReportData } from './report';
 
 export type CsvCell = string | number | null | undefined;
@@ -31,14 +31,8 @@ export function sessionCsv(data: SessionReportData): string {
     'Minutos',
     'RPE',
     'sRPE',
-    'Sueño',
-    'Fatiga',
-    'Dolor muscular',
-    'Estrés',
-    'Wellness total',
-    'Horas de sueño (1-5)',
-    'Ánimo',
-    'Preparación',
+    'Wellness general (1-10)',
+    ...WELLNESS_QUESTIONS.map((q) => `${q.label} (1-10)`),
     'Molestia (0-3)',
     'Mensaje al entrenador',
     'ACWR saltos',
@@ -62,14 +56,8 @@ export function sessionCsv(data: SessionReportData): string {
       r.minutes,
       r.rpe,
       r.srpe,
-      w?.sleep,
-      w?.fatigue,
-      w?.soreness,
-      w?.stress,
-      r.wellnessTotal,
-      w?.sleepHours,
-      w?.mood,
-      w?.readiness,
+      r.wellnessScore,
+      ...WELLNESS_QUESTIONS.map((q) => (w?.[q.key] != null ? itemScore(w[q.key]!) : null)),
       r.attendance.discomfort,
       r.attendance.playerNote,
       r.acwrJumps.ratio,

@@ -10,6 +10,7 @@ import { rpeColor } from '../components/RpeSelector';
 import { useToast } from '../components/Toast';
 import { Badge, Button, ButtonLink, Card, CardHeader, cx, Disclaimer, EmptyState, Field, Input, PageHeader, Select, StatTile, Textarea } from '../components/ui';
 import { isWellnessComplete, WellnessForm } from '../components/WellnessForm';
+import { WellnessGrid } from '../components/WellnessGrid';
 import { complaintLabel } from '../db/complaints';
 import { loadSessionReport } from '../db/reportLoader';
 import { db } from '../db/schema';
@@ -20,25 +21,17 @@ import { sessionCsv } from '../lib/csv';
 import { canShareFiles, downloadBlob, downloadText, shareFile } from '../lib/download';
 import { capitalize, fmtDateLong, fmtNum, fmtTime, slug } from '../lib/format';
 import { DISCOMFORT_LABEL } from '../lib/forms/zones';
-import { SLEEP_HOURS_LABELS } from '../lib/metrics';
+import { itemScore, WELLNESS_QUESTIONS } from '../lib/metrics';
 import { playerLabel, type SessionReportData } from '../lib/report';
 
 const LIMIT_TEXT = { none: '', ok: 'text-emerald-700', warn: 'text-amber-700 font-bold', over: 'text-red-700 font-bold' };
 
-/** Detalle del wellness para el tooltip (incluye los ítems de la encuesta del profesor). */
+/** Detalle del wellness para el tooltip: cada respuesta con su nota 1-10. */
 function wellnessDetail(att: Attendance): string | undefined {
   const w = att.wellness;
   if (!w) return undefined;
-  const parts = [
-    w.sleepHours != null ? `Horas de sueño: ${SLEEP_HOURS_LABELS[w.sleepHours]}` : '',
-    `Calidad del sueño ${w.sleep}`,
-    `Fatiga ${w.fatigue}`,
-    `Dolor muscular ${w.soreness}`,
-    `Estrés ${w.stress}`,
-    w.mood != null ? `Ánimo ${w.mood}` : '',
-    w.readiness != null ? `Preparación ${w.readiness}` : '',
-    att.discomfort ? DISCOMFORT_LABEL[att.discomfort] : '',
-  ];
+  const parts = WELLNESS_QUESTIONS.map((q) => (w[q.key] != null ? `${q.label}: ${q.options[w[q.key]! - 1]} (${itemScore(w[q.key]!)}/10)` : ''));
+  if (att.discomfort) parts.push(DISCOMFORT_LABEL[att.discomfort]);
   return parts.filter(Boolean).join(' · ');
 }
 
@@ -290,10 +283,10 @@ export function SessionReport() {
                       className={cx(editing && 'rounded-md underline decoration-dotted')}
                       title={wellnessDetail(r.attendance)}
                     >
-                      {r.wellnessTotal != null ? (
+                      {r.wellnessScore != null ? (
                         <Badge tone={r.wellnessLow.length || r.wellnessDrop ? 'amber' : 'slate'}>
-                          {r.wellnessTotal}/20
-                          {r.wellnessLow.length > 0 && <span className="font-medium">· {r.wellnessLow.join(', ')}</span>}
+                          {r.wellnessScore}/10
+                          {r.wellnessLow.length > 0 && <span className="font-medium">· {r.wellnessLow.length} en alerta</span>}
                         </Badge>
                       ) : editing ? (
                         <span className="text-orange-700">Añadir</span>
@@ -325,6 +318,40 @@ export function SessionReport() {
           {data.rows.length === 0 && <p className="px-4 py-8 text-center text-sm text-slate-400">Nadie entrenó en esta sesión.</p>}
         </div>
       </Card>
+
+      {data.rows.some((r) => r.attendance.wellness) && (
+        <Card className="mb-5">
+          <CardHeader
+            title={
+              <span className="inline-flex items-center gap-2">
+                <HeartPulse size={18} className="text-orange-600" /> Wellness por pregunta
+              </span>
+            }
+            subtitle="Lo que respondió cada jugadora (1 = muy mal, 10 = perfecto)"
+          />
+          <WellnessGrid
+            showAverage
+            rows={data.rows
+              .filter((r) => r.attendance.wellness)
+              .map((r) => ({
+                key: r.attendance.id!,
+                label: (
+                  <span className="flex items-center gap-2 font-semibold whitespace-nowrap text-slate-900">
+                    <PositionBubble player={r.player} size="sm" />
+                    {r.player.name}
+                  </span>
+                ),
+                wellness: r.attendance.wellness,
+                discomfort: r.attendance.discomfort,
+                discomfortZone:
+                  data.complaints
+                    .filter((c) => c.player?.id === r.player.id && c.complaint.fromForm)
+                    .map((c) => complaintLabel(c.complaint))
+                    .join(', ') || undefined,
+              }))}
+          />
+        </Card>
+      )}
 
       {data.blocks.length > 0 && (
         <Card className="mb-5">
@@ -454,7 +481,7 @@ export function SessionReport() {
             </Button>
             <Button
               onClick={async () => {
-                if (!isWellnessComplete(wellnessDraft)) return toast('Completa los 4 ítems', 'warning');
+                if (!isWellnessComplete(wellnessDraft)) return toast('Completa calidad del sueño, fatiga, dolor muscular y estrés', 'warning');
                 await updateAttendance(wellnessFor!.attendance.id!, { wellness: wellnessDraft });
                 setWellnessFor(null);
               }}

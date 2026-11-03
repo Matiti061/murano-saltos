@@ -70,7 +70,7 @@ export const ATTENDANCE_LABEL: Record<AttendanceStatus, string> = {
 };
 
 /**
- * Cada ítem va de 1 a 5, donde 5 es siempre lo mejor. El total /20 usa solo los 4 primeros
+ * Cada ítem se guarda de 1 a 5 (5 = lo mejor) y se muestra de 1 a 10. Los 4 primeros son obligatorios
  * (sueño = calidad del sueño); los demás vienen del formulario del profesor y son opcionales.
  */
 export interface Wellness {

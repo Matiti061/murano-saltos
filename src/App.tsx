@@ -18,6 +18,7 @@ import { SettingsPage } from './pages/Settings';
 const PlayerDetail = lazy(() => import('./pages/PlayerDetail').then((m) => ({ default: m.PlayerDetail })));
 const Stats = lazy(() => import('./pages/Stats').then((m) => ({ default: m.Stats })));
 // Lectores de CSV/Excel/ZIP solo cuando se usan.
+const WellnessPage = lazy(() => import('./pages/Wellness').then((m) => ({ default: m.WellnessPage })));
 const FormsPage = lazy(() => import('./pages/Forms').then((m) => ({ default: m.FormsPage })));
 
 export function App() {
@@ -40,6 +41,7 @@ export function App() {
                   <Route path="historial" element={<History />} />
                   <Route path="historial/manual" element={<ManualEntry />} />
                   <Route path="evolucion" element={<Stats />} />
+                  <Route path="wellness" element={<WellnessPage />} />
                   <Route path="encuestas" element={<FormsPage />} />
                   <Route path="ajustes" element={<SettingsPage />} />
                   <Route path="*" element={<Dashboard />} />

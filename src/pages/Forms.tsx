@@ -18,7 +18,7 @@ import { normalize } from '../lib/forms/text';
 import { saysNotComing } from '../lib/forms/notes';
 import { DISCOMFORT_LABEL } from '../lib/forms/zones';
 import { fmtDate, fmtTime } from '../lib/format';
-import { wellnessLowItems, wellnessTotal } from '../lib/metrics';
+import { wellnessLowItems, wellnessScore } from '../lib/metrics';
 import { NoTeam } from './Dashboard';
 
 type RowStatus = 'nueva' | 'importada' | 'sin-jugadora' | 'sin-fecha';
@@ -30,7 +30,7 @@ function ValuesSummary({ kind, values, threshold }: { kind: FormKind; values: Fo
   const low = complete ? wellnessLowItems(w, threshold) : [];
   return (
     <div className="flex flex-wrap items-center gap-1">
-      {complete ? <Badge tone={low.length ? 'amber' : 'slate'}>{wellnessTotal(w)}/20</Badge> : <Badge>Incompleto</Badge>}
+      {complete ? <Badge tone={low.length ? 'amber' : 'slate'}>{wellnessScore(w)}/10</Badge> : <Badge>Incompleto</Badge>}
       {saysNotComing(values.note) && <Badge tone="red">Avisa que no viene</Badge>}
       {low.length > 0 && <span className="text-xs text-amber-800">{low.join(', ')}</span>}
       {values.discomfort ? <Badge tone={values.discomfort >= 3 ? 'red' : 'amber'}>{DISCOMFORT_LABEL[values.discomfort]}</Badge> : null}

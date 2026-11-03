@@ -18,7 +18,7 @@ import {
   sessionRpeLoad,
   wellnessDropsBelowAverage,
   wellnessLowItems,
-  wellnessTotal,
+  wellnessScore,
   type AcwrResult,
   type LimitState,
   type LoadPoint,
@@ -56,7 +56,7 @@ export interface ReportPlayerRow {
   minutes?: number;
   rpe?: number;
   srpe: number | null;
-  wellnessTotal: number | null;
+  wellnessScore: number | null;
   wellnessLow: string[];
   wellnessDrop: boolean;
   acwrJumps: AcwrResult;
@@ -94,8 +94,6 @@ export interface SessionReportData {
   complaints: { complaint: Complaint; player?: Player }[];
   /** Mensajes que las jugadoras dejaron al entrenador en la encuesta pre-entreno. */
   messages: { player: Player; note: string }[];
-  /** true si alguna jugadora tiene datos de la encuesta del profesor (horas de sueño, ánimo, preparación, molestia). */
-  hasFormDetail: boolean;
   alerts: ReportAlert[];
 }
 
@@ -127,7 +125,7 @@ export function buildReport(raw: ReportRaw): SessionReportData {
     const jumps = totalJumps(att, pending);
     const limit = att.jumpLimit ?? player.jumpLimit;
     const points = raw.history.get(att.playerId) ?? [];
-    const wTotal = wellnessTotal(att.wellness);
+    const wTotal = wellnessScore(att.wellness);
     rows.push({
       player,
       attendance: att,
@@ -140,7 +138,7 @@ export function buildReport(raw: ReportRaw): SessionReportData {
       minutes: att.minutes,
       rpe: att.rpe,
       srpe: sessionRpeLoad(att.rpe, att.minutes),
-      wellnessTotal: wTotal,
+      wellnessScore: wTotal,
       wellnessLow: wellnessLowItems(att.wellness, settings.wellnessItemAlert),
       wellnessDrop: wellnessDropsBelowAverage(wTotal, raw.wellnessAvg.get(att.playerId) ?? null),
       acwrJumps: computeAcwr(points, session.date, 'jumps', settings),
@@ -199,10 +197,6 @@ export function buildReport(raw: ReportRaw): SessionReportData {
       .map((a) => ({ player: playersById.get(a.playerId)!, note: a.playerNote! }))
       .filter((m) => m.player)
       .sort((a, b) => comparePlayers(a.player, b.player)),
-    hasFormDetail: rows.some((r) => {
-      const w = r.attendance.wellness;
-      return w?.sleepHours != null || w?.mood != null || w?.readiness != null || r.attendance.discomfort != null;
-    }),
     alerts: buildAlerts(rows, complaints),
   };
 }

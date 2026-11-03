@@ -1,4 +1,4 @@
-import { average, wellnessTotal, type LoadPoint } from '../lib/metrics';
+import { average, wellnessScore, type LoadPoint } from '../lib/metrics';
 import { buildReport, type SessionReportData } from '../lib/report';
 import { loadRowsForPlayers, toLoadPoint } from './history';
 import { db } from './schema';
@@ -33,7 +33,7 @@ export async function loadSessionReport(sessionId: string): Promise<SessionRepor
     history.set(playerId, upToHere.map(toLoadPoint));
     const previous = upToHere
       .filter((r) => r.session.id !== sessionId)
-      .map((r) => wellnessTotal(r.attendance.wellness))
+      .map((r) => wellnessScore(r.attendance.wellness))
       .filter((v): v is number => v != null);
     wellnessAvg.set(playerId, previous.length >= 3 ? average(previous) : null);
   }

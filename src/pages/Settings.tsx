@@ -268,11 +268,11 @@ export function SettingsPage() {
               <Input type="number" min={50} max={99} defaultValue={settings.limitWarnPct} key={`p${settings.limitWarnPct}`} onBlur={(e) => updateSettings({ limitWarnPct: Number(e.target.value) || 80 })} />
             </Field>
             <div className="col-span-2">
-              <Field label="Alerta wellness si un ítem es ≤">
+              <Field label="Alerta wellness si una pregunta es ≤">
                 <Select value={settings.wellnessItemAlert} onChange={(e) => updateSettings({ wellnessItemAlert: Number(e.target.value) })}>
-                  <option value={1}>1 (muy mal)</option>
-                  <option value={2}>2 (mal)</option>
-                  <option value={3}>3 (regular)</option>
+                  <option value={1}>1/10 (la peor opción)</option>
+                  <option value={2}>3/10 (mal)</option>
+                  <option value={3}>6/10 (regular)</option>
                 </Select>
               </Field>
             </div>

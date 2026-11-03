@@ -12,7 +12,7 @@ import {
   computeAcwr,
   wellnessDropsBelowAverage,
   wellnessLowItems,
-  wellnessTotal,
+  wellnessScore,
   type AcwrResult,
   type LoadPoint,
 } from '../lib/metrics';
@@ -51,8 +51,8 @@ export async function loadTeamSummary(teamId: string, includeArchived = false): 
     const last = withWellness[withWellness.length - 1];
     let recentWellness: PlayerLoadSummary['recentWellness'];
     if (last && differenceInCalendarDays(parseISO(today), parseISO(last.session.date)) <= 3) {
-      const total = wellnessTotal(last.attendance.wellness)!;
-      const previous = withWellness.slice(0, -1).map((r) => wellnessTotal(r.attendance.wellness)!);
+      const total = wellnessScore(last.attendance.wellness)!;
+      const previous = withWellness.slice(0, -1).map((r) => wellnessScore(r.attendance.wellness)!);
       recentWellness = {
         date: last.session.date,
         total,

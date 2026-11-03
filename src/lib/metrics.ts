@@ -145,9 +145,9 @@ export function limitState(jumps: number, limit: number | undefined, warnPct: nu
 export type CoreWellnessKey = 'sleep' | 'fatigue' | 'soreness' | 'stress';
 export type ExtraWellnessKey = 'sleepHours' | 'mood' | 'readiness';
 
-/** Los 4 ítems que suman el total /20. */
+/** Los 4 ítems obligatorios del registro en la app. */
 export const WELLNESS_ITEMS: { key: CoreWellnessKey; label: string; low: string; high: string }[] = [
-  { key: 'sleep', label: 'Sueño', low: 'Muy malo', high: 'Excelente' },
+  { key: 'sleep', label: 'Calidad del sueño', low: 'Muy mala', high: 'Excelente' },
   { key: 'fatigue', label: 'Fatiga', low: 'Agotada', high: 'Muy fresca' },
   { key: 'soreness', label: 'Dolor muscular', low: 'Mucho dolor', high: 'Sin dolor' },
   { key: 'stress', label: 'Estrés', low: 'Muy estresada', high: 'Muy relajada' },
@@ -163,9 +163,62 @@ export const WELLNESS_EXTRA_ITEMS: { key: ExtraWellnessKey; label: string; low: 
 /** Texto de las 5 opciones de horas de sueño (1 a 5). */
 export const SLEEP_HOURS_LABELS = ['', '< 5 h', '5–6 h', '6–7 h', '7–8 h', '> 8 h'];
 
-export function wellnessTotal(w?: Wellness | null): number | null {
+export type WellnessKey = CoreWellnessKey | ExtraWellnessKey;
+
+/** Las 7 preguntas del cuestionario en su orden, con el texto de cada opción (de la peor a la mejor). */
+export const WELLNESS_QUESTIONS: { key: WellnessKey; label: string; short: string; options: string[] }[] = [
+  { key: 'sleepHours', label: 'Horas de sueño', short: 'Horas sueño', options: ['Menos de 5 h', '5–6 h', '6–7 h', '7–8 h', 'Más de 8 h'] },
+  { key: 'sleep', label: 'Calidad del sueño', short: 'Calidad sueño', options: ['Muy mala', 'Mala', 'Regular', 'Buena', 'Excelente'] },
+  {
+    key: 'fatigue',
+    label: 'Fatiga',
+    short: 'Fatiga',
+    options: ['Cansancio extremo', 'Mucho cansancio', 'Cansancio moderado', 'Poco cansancio', 'Nada de cansancio'],
+  },
+  { key: 'soreness', label: 'Dolor muscular', short: 'Dolor musc.', options: ['Dolor muy intenso', 'Dolor intenso', 'Dolor moderado', 'Dolor leve', 'Sin dolor'] },
+  { key: 'stress', label: 'Estrés', short: 'Estrés', options: ['Estrés extremo', 'Mucho estrés', 'Estrés moderado', 'Poco estrés', 'Nada de estrés'] },
+  { key: 'mood', label: 'Ánimo', short: 'Ánimo', options: ['Muy desanimada', 'Desanimada', 'Normal', 'Animada', 'Muy animada'] },
+  {
+    key: 'readiness',
+    label: 'Preparación',
+    short: 'Preparación',
+    options: ['Nada preparada', 'Poco preparada', 'Medianamente preparada', 'Bien preparada', 'Totalmente preparada'],
+  },
+];
+
+/** Respuesta 1-5 en la escala 1-10 (sin redondear). */
+const toTen = (v: number) => 1 + ((v - 1) * 9) / 4;
+
+/** Nota 1-10 de una respuesta (1 = la peor opción, 10 = la mejor): 1 · 3 · 6 · 8 · 10. */
+export function itemScore(v: number): number {
+  return Math.round(toTen(v));
+}
+
+/** Wellness general de 1 a 10: media de las 7 preguntas que haya respondido. */
+export function wellnessScore(w?: Partial<Wellness> | null): number | null {
   if (!w) return null;
-  return w.sleep + w.fatigue + w.soreness + w.stress;
+  const values = WELLNESS_QUESTIONS.map((q) => w[q.key]).filter((v): v is number => typeof v === 'number');
+  if (values.length === 0) return null;
+  return Math.round(values.reduce((a, v) => a + toTen(v), 0) / values.length);
+}
+
+/** Media 1-10 de una pregunta (o del general si key es null) en varias jugadoras. */
+export function averageScore(list: (Partial<Wellness> | undefined)[], key: WellnessKey | null): number | null {
+  const values = list
+    .map((w) => (!w ? null : key ? (w[key] != null ? toTen(w[key]) : null) : wellnessScore(w)))
+    .filter((v): v is number => v != null);
+  return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null;
+}
+
+/** Color de una nota 1-10. */
+export function scoreTone(score: number | null | undefined): 'red' | 'amber' | 'green' | 'slate' {
+  if (score == null) return 'slate';
+  return score <= 4 ? 'red' : score <= 6 ? 'amber' : 'green';
+}
+
+/** Si una respuesta 1-5 está en zona de alerta (igual criterio que wellnessLowItems). */
+export function isLowAnswer(key: WellnessKey, v: number, itemThreshold: number): boolean {
+  return key === 'sleepHours' ? v <= 2 : v <= itemThreshold;
 }
 
 /** Ítems de wellness iguales o por debajo del umbral (incluidos los opcionales; < 6 h de sueño cuenta como bajo). */
@@ -180,7 +233,7 @@ export function wellnessLowItems(w: Wellness | null | undefined, itemThreshold: 
 }
 
 /** Puntos por debajo de su media personal a partir de los cuales se avisa. */
-export const WELLNESS_DROP_ALERT = 3;
+export const WELLNESS_DROP_ALERT = 2;
 
 export function wellnessDropsBelowAverage(total: number | null, personalAvg: number | null): boolean {
   if (total == null || personalAvg == null) return false;

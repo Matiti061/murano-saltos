@@ -88,7 +88,7 @@ describe('buildReport', () => {
     const texts = data.alerts.map((a) => a.text).join('\n');
     expect(data.rows[1].limitState).toBe('over');
     expect(texts).toContain('Nerea Torres ha alcanzado su límite de saltos: 3/3 (100%)');
-    expect(texts).toContain('Lucía Martín: wellness bajo en sueño');
+    expect(texts).toContain('Lucía Martín: wellness bajo en calidad del sueño');
     expect(texts).toContain('Nerea Torres está en readaptación');
     expect(texts).toContain('molestia en rodilla derecha (4/10)');
     expect(data.alerts[0].level).toBe('alta');

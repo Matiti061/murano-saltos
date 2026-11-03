@@ -245,7 +245,7 @@ export function Dashboard() {
                     ) : a.key.startsWith('c') ? (
                       <HeartPulse size={18} className={a.level === 'alta' ? 'text-red-600' : 'text-amber-500'} />
                     ) : (
-                      <Badge tone="amber">{a.summary.recentWellness?.total}/20</Badge>
+                      <Badge tone="amber">{a.summary.recentWellness?.total}/10</Badge>
                     )}
                   </Link>
                 </li>

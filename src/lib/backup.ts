@@ -5,7 +5,7 @@ import { toCsv, type CsvCell } from './csv';
 import { downloadText } from './download';
 import { todayISO } from './format';
 import { importDataset, summarize, type Dataset, type DatasetSummary } from './importData';
-import { sessionRpeLoad, wellnessTotal } from './metrics';
+import { itemScore, sessionRpeLoad, WELLNESS_QUESTIONS, wellnessScore } from './metrics';
 
 const BACKUP_APP = 'murano-saltos';
 /**
@@ -123,14 +123,8 @@ export async function exportLoadsCsv() {
       a.minutes,
       a.rpe,
       sessionRpeLoad(a.rpe, a.minutes),
-      a.wellness?.sleep,
-      a.wellness?.fatigue,
-      a.wellness?.soreness,
-      a.wellness?.stress,
-      wellnessTotal(a.wellness),
-      a.wellness?.sleepHours,
-      a.wellness?.mood,
-      a.wellness?.readiness,
+      wellnessScore(a.wellness),
+      ...WELLNESS_QUESTIONS.map((q) => (a.wellness?.[q.key] != null ? itemScore(a.wellness[q.key]!) : null)),
       a.discomfort,
       a.playerNote,
     ]);
@@ -147,14 +141,8 @@ export async function exportLoadsCsv() {
     'Minutos',
     'RPE',
     'sRPE',
-    'Sueño',
-    'Fatiga',
-    'Dolor muscular',
-    'Estrés',
-    'Wellness total',
-    'Horas de sueño (1-5)',
-    'Ánimo',
-    'Preparación',
+    'Wellness general (1-10)',
+    ...WELLNESS_QUESTIONS.map((q) => `${q.label} (1-10)`),
     'Molestia (0-3)',
     'Mensaje al entrenador',
   ];

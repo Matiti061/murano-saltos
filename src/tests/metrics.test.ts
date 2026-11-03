@@ -8,9 +8,11 @@ import {
   limitState,
   sessionRpeLoad,
   weeklyTotals,
+  averageScore,
+  itemScore,
   wellnessDropsBelowAverage,
   wellnessLowItems,
-  wellnessTotal,
+  wellnessScore,
   type LoadPoint,
 } from '../lib/metrics';
 
@@ -109,12 +111,21 @@ describe('límites, sRPE y wellness', () => {
 
   it('wellness', () => {
     const w = { sleep: 2, fatigue: 4, soreness: 1, stress: 5 };
-    expect(wellnessTotal(w)).toBe(12);
-    expect(wellnessTotal(undefined)).toBeNull();
-    expect(wellnessLowItems(w, 2)).toEqual(['Sueño', 'Dolor muscular']);
-    expect(wellnessDropsBelowAverage(12, 16)).toBe(true);
-    expect(wellnessDropsBelowAverage(14, 16)).toBe(false);
-    expect(wellnessDropsBelowAverage(12, null)).toBe(false);
+    // 1-5 → 1-10: 3,25 · 7,75 · 1 · 10 → media 5,5 → 6
+    expect(wellnessScore(w)).toBe(6);
+    expect(wellnessScore(undefined)).toBeNull();
+    expect(wellnessScore({})).toBeNull();
+    // Cuentan también las preguntas opcionales del cuestionario.
+    expect(wellnessScore({ sleep: 5, fatigue: 5, soreness: 5, stress: 5, sleepHours: 1, mood: 1, readiness: 1 })).toBe(6);
+    expect(wellnessScore({ sleep: 5, fatigue: 5, soreness: 5, stress: 5 })).toBe(10);
+    expect(wellnessScore({ sleep: 1, fatigue: 1, soreness: 1, stress: 1 })).toBe(1);
+    expect([1, 2, 3, 4, 5].map(itemScore)).toEqual([1, 3, 6, 8, 10]);
+    expect(averageScore([{ sleep: 1 }, { sleep: 5 }, undefined], 'sleep')).toBe(6);
+    expect(averageScore([{ mood: 2 }], 'sleep')).toBeNull();
+    expect(wellnessLowItems(w, 2)).toEqual(['Calidad del sueño', 'Dolor muscular']);
+    expect(wellnessDropsBelowAverage(6, 8)).toBe(true);
+    expect(wellnessDropsBelowAverage(7, 8)).toBe(false);
+    expect(wellnessDropsBelowAverage(6, null)).toBe(false);
   });
 });
 

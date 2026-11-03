@@ -8,7 +8,8 @@ import { ComplaintForm } from '../components/ComplaintForm';
 import { PositionBubble, StatusBadge } from '../components/PlayerBits';
 import { PlayerForm } from '../components/PlayerForm';
 import { useToast } from '../components/Toast';
-import { Badge, Button, Card, CardHeader, Disclaimer, EmptyState, StatTile } from '../components/ui';
+import { Badge, Button, Card, CardHeader, Disclaimer, EmptyState, Select, StatTile } from '../components/ui';
+import { ScoreBadge, WellnessGrid } from '../components/WellnessGrid';
 import { complaintLabel, deleteComplaint, isActiveComplaint, reopenComplaint, resolveComplaint } from '../db/complaints';
 import { loadPlayerRows, loadPointsFrom } from '../db/history';
 import { deletePlayerCascade, setPlayerArchived } from '../db/players';
@@ -17,7 +18,7 @@ import { isPresent } from '../db/sessions';
 import { useSettings } from '../db/settings';
 import { ATTENDANCE_LABEL, SESSION_TYPE_LABEL, type Complaint } from '../db/types';
 import { fmtDate, fmtDateShort, fmtDayMonth, fmtNum, todayISO } from '../lib/format';
-import { acwrSeries, computeAcwr, sessionRpeLoad, weeklyTotals, wellnessTotal } from '../lib/metrics';
+import { acwrSeries, computeAcwr, itemScore, sessionRpeLoad, weeklyTotals, WELLNESS_QUESTIONS, wellnessScore, type WellnessKey } from '../lib/metrics';
 
 export function PlayerDetail() {
   const id = useParams().id!;
@@ -34,6 +35,7 @@ export function PlayerDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [complaintOpen, setComplaintOpen] = useState(false);
   const [editingComplaint, setEditingComplaint] = useState<Complaint | undefined>();
+  const [wellnessKey, setWellnessKey] = useState<WellnessKey | 'general'>('general');
 
   const stats = useMemo(() => {
     if (!rows) return null;
@@ -58,15 +60,17 @@ export function PlayerDetail() {
       acwr: acwrSeries(points, 'jumps', settings)
         .slice(-30)
         .map((a) => ({ label: fmtDateShort(a.date), value: a.ratio, detail: fmtDate(a.date) })),
-      wellness: rows
-        .filter((r) => r.attendance.wellness)
-        .slice(-20)
-        .map((r) => ({ label: fmtDateShort(r.session.date), value: wellnessTotal(r.attendance.wellness), detail: fmtDate(r.session.date) })),
+      wellnessRows: rows.filter((r) => r.attendance.wellness),
       sessionsCount: rows.filter((r) => isPresent(r.attendance.status)).length,
     };
   }, [rows, settings]);
 
   if (player === undefined || !stats) return null;
+  const wellnessChart = stats.wellnessRows.slice(-20).map((r) => {
+    const w = r.attendance.wellness!;
+    const v = wellnessKey === 'general' ? wellnessScore(w) : w[wellnessKey] != null ? itemScore(w[wellnessKey]!) : null;
+    return { label: fmtDateShort(r.session.date), value: v, detail: fmtDate(r.session.date) };
+  });
   if (player === null) {
     return (
       <Card>
@@ -161,8 +165,19 @@ export function PlayerDetail() {
         <ChartCard title="Carga interna por semana (sRPE)" subtitle="RPE × minutos">
           <ColumnChart data={stats.weeklySrpe} unit="UA" color={VIZ.series2} />
         </ChartCard>
-        <ChartCard title="Wellness" subtitle="Suma de 4 ítems (4 = muy mal, 20 = perfecto)">
-          <TrendLineChart data={stats.wellness} unit="/ 20" domain={[4, 20]} />
+        <ChartCard
+          title="Wellness"
+          subtitle={`${wellnessKey === 'general' ? 'General' : WELLNESS_QUESTIONS.find((q) => q.key === wellnessKey)!.label} · últimas 20 respuestas (1 = muy mal, 10 = perfecto)`}
+        >
+          <Select className="mb-2 h-9 text-sm" value={wellnessKey} onChange={(e) => setWellnessKey(e.target.value as WellnessKey | 'general')}>
+            <option value="general">General</option>
+            {WELLNESS_QUESTIONS.map((q) => (
+              <option key={q.key} value={q.key}>
+                {q.label}
+              </option>
+            ))}
+          </Select>
+          <TrendLineChart data={wellnessChart} unit="/ 10" domain={[1, 10]} />
         </ChartCard>
 
         <Card>
@@ -234,6 +249,29 @@ export function PlayerDetail() {
         </Card>
       </div>
 
+      {stats.wellnessRows.length > 0 && (
+        <Card className="mb-5">
+          <CardHeader title="Wellness por pregunta" subtitle="Lo que respondió en cada entrenamiento, del más reciente al más antiguo" />
+          <div className="max-h-[32rem] overflow-y-auto">
+            <WellnessGrid
+              labelHeader="Fecha"
+              showNotes
+              rows={[...stats.wellnessRows].reverse().map(({ session, attendance: a }) => ({
+                key: a.id!,
+                label: (
+                  <Link className="font-semibold whitespace-nowrap text-orange-700 hover:underline" to={`/entreno/${session.id}`}>
+                    {fmtDate(session.date)}
+                  </Link>
+                ),
+                wellness: a.wellness,
+                discomfort: a.discomfort,
+                note: a.playerNote,
+              }))}
+            />
+          </div>
+        </Card>
+      )}
+
       <Card>
         <CardHeader title="Historial de sesiones" subtitle={`${rows?.length ?? 0} registros`} />
         <div className="overflow-x-auto">
@@ -264,7 +302,7 @@ export function PlayerDetail() {
                   <td className="px-4 py-2 text-right tabular-nums">{a.minutes ?? '–'}</td>
                   <td className="px-4 py-2 text-right tabular-nums">{a.rpe ?? '–'}</td>
                   <td className="px-4 py-2 text-right tabular-nums">{sessionRpeLoad(a.rpe, a.minutes) ?? '–'}</td>
-                  <td className="px-4 py-2 text-right tabular-nums">{wellnessTotal(a.wellness) ?? '–'}</td>
+                  <td className="px-4 py-2 text-right">{a.wellness ? <ScoreBadge score={wellnessScore(a.wellness)} /> : '–'}</td>
                 </tr>
               ))}
             </tbody>

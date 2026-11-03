@@ -3,7 +3,7 @@ import autoTable, { type CellHookData } from 'jspdf-autotable';
 import { complaintLabel } from '../../db/complaints';
 import { ATTENDANCE_LABEL, SESSION_TYPE_LABEL } from '../../db/types';
 import { fmtDateLong, fmtNum, fmtTime, slug } from '../format';
-import { SLEEP_HOURS_LABELS, type AcwrStatus, type LimitState } from '../metrics';
+import { isLowAnswer, itemScore, scoreTone, WELLNESS_QUESTIONS, wellnessScore, type AcwrStatus, type LimitState } from '../metrics';
 import { DISCOMFORT_LABEL } from '../forms/zones';
 import { playerLabel, type SessionReportData } from '../report';
 
@@ -22,6 +22,12 @@ const ACWR_FILL: Record<AcwrStatus, RGB> = {
   optimo: [220, 252, 231],
   alto: [254, 243, 199],
   muy_alto: [254, 202, 202],
+};
+
+const SCORE_FILL: Record<'red' | 'amber' | 'green', RGB> = {
+  red: [254, 202, 202],
+  amber: [254, 243, 199],
+  green: [220, 252, 231],
 };
 
 const LIMIT_FILL: Record<LimitState, RGB | null> = {
@@ -231,7 +237,7 @@ export function createSessionPdf(data: SessionReportData, defaultLogo?: string):
         r.minutes ?? '–',
         r.rpe ?? '–',
         r.srpe ?? '–',
-        r.wellnessTotal != null ? `${r.wellnessTotal}/20` : '–',
+        r.wellnessScore != null ? `${r.wellnessScore}/10` : '–',
         fmtRatio(r.acwrJumps.ratio),
         fmtRatio(r.acwrSrpe.ratio),
       ]),
@@ -270,48 +276,57 @@ export function createSessionPdf(data: SessionReportData, defaultLogo?: string):
       `ACWR = carga de los últimos 7 días / media semanal de los últimos 28 días (necesita al menos 3 semanas de datos). ` +
         `Azul < ${fmtNum(settings.acwrLow, 1)} carga baja · Verde ${fmtNum(settings.acwrLow, 1)}–${fmtNum(settings.acwrHigh, 1)} óptimo · ` +
         `Ámbar hasta ${fmtNum(settings.acwrVeryHigh, 1)} pico de carga · Rojo > ${fmtNum(settings.acwrVeryHigh, 1)} pico alto. ` +
-        `sRPE = RPE × minutos. Wellness: suma de sueño, fatiga, dolor muscular y estrés (1-5 cada uno, 20 = óptimo).`,
+        `sRPE = RPE × minutos. Wellness de 1 a 10: media de las preguntas del cuestionario (1 = muy mal, 10 = perfecto).`,
       contentW,
     ) as string[];
     doc.text(legend, MARGIN, y);
     y += legend.length * 3 + 6;
   }
 
-  // ---- Encuesta pre-entreno (formulario del profesor) ----
-  if (data.hasFormDetail) {
-    y = sectionTitle('Encuesta pre-entreno', y, 40);
-    const score = (v?: number) => (v == null ? '–' : String(v));
+  // ---- Wellness por pregunta (lo que respondió cada jugadora) ----
+  const wellnessRows = data.rows.filter((r) => r.attendance.wellness || r.attendance.discomfort != null);
+  if (wellnessRows.length > 0) {
+    y = sectionTitle('Wellness por pregunta', y, 40);
     autoTable(doc, {
       startY: y,
       margin: { left: MARGIN, right: MARGIN },
-      head: [['Jugadora', 'Horas sueño', 'Calidad sueño', 'Fatiga', 'Dolor musc.', 'Estrés', 'Ánimo', 'Preparación', 'Molestia']],
-      body: data.rows.map((r) => {
+      head: [['Jugadora', 'General', ...WELLNESS_QUESTIONS.map((q) => q.short), 'Molestia']],
+      body: wellnessRows.map((r) => {
         const w = r.attendance.wellness;
+        const general = wellnessScore(w);
         return [
           r.player.name,
-          w?.sleepHours != null ? SLEEP_HOURS_LABELS[w.sleepHours] : '–',
-          score(w?.sleep),
-          score(w?.fatigue),
-          score(w?.soreness),
-          score(w?.stress),
-          score(w?.mood),
-          score(w?.readiness),
+          general != null ? `${general}/10` : '–',
+          ...WELLNESS_QUESTIONS.map((q) => {
+            const v = w?.[q.key];
+            return v == null ? '–' : `${q.options[v - 1]}\n${itemScore(v)}/10`;
+          }),
           r.attendance.discomfort != null ? DISCOMFORT_LABEL[r.attendance.discomfort] : '–',
         ];
       }),
-      styles: { fontSize: 7.5, cellPadding: 1.4, textColor: TEXT, lineColor: BORDER, lineWidth: 0.1, halign: 'center' },
-      headStyles: { fillColor: BRAND_DARK, textColor: 255, fontSize: 7 },
-      columnStyles: { 0: { halign: 'left', cellWidth: 38 }, 8: { cellWidth: 32 } },
+      styles: { fontSize: 6.8, cellPadding: 1.2, textColor: TEXT, lineColor: BORDER, lineWidth: 0.1, halign: 'center', valign: 'middle' },
+      headStyles: { fillColor: BRAND_DARK, textColor: 255, fontSize: 6.8 },
+      columnStyles: { 0: { halign: 'left', cellWidth: 30 }, 1: { fontStyle: 'bold', cellWidth: 14 }, 9: { cellWidth: 22 } },
       didParseCell: (hook: CellHookData) => {
         if (hook.section !== 'body') return;
-        const r = data.rows[hook.row.index];
+        const r = wellnessRows[hook.row.index];
         const w = r.attendance.wellness;
-        const keys = [null, 'sleepHours', 'sleep', 'fatigue', 'soreness', 'stress', 'mood', 'readiness'] as const;
-        const key = keys[hook.column.index];
-        const v = key ? w?.[key] : undefined;
-        if (v != null && v <= (key === 'sleepHours' ? 2 : settings.wellnessItemAlert)) hook.cell.styles.fillColor = ACWR_FILL.alto;
-        if (hook.column.index === 8 && (r.attendance.discomfort ?? 0) > 0) {
-          hook.cell.styles.fillColor = (r.attendance.discomfort ?? 0) >= 3 ? ACWR_FILL.muy_alto : ACWR_FILL.alto;
+        const col = hook.column.index;
+        if (col === 1) {
+          const tone = scoreTone(wellnessScore(w));
+          if (tone !== 'slate') hook.cell.styles.fillColor = SCORE_FILL[tone];
+        }
+        const q = col >= 2 && col < 2 + WELLNESS_QUESTIONS.length ? WELLNESS_QUESTIONS[col - 2] : null;
+        const v = q ? w?.[q.key] : undefined;
+        if (q && v != null) {
+          hook.cell.styles.fillColor = isLowAnswer(q.key, v, settings.wellnessItemAlert)
+            ? SCORE_FILL.red
+            : itemScore(v) <= 6
+              ? SCORE_FILL.amber
+              : SCORE_FILL.green;
+        }
+        if (col === 9 && (r.attendance.discomfort ?? 0) > 0) {
+          hook.cell.styles.fillColor = (r.attendance.discomfort ?? 0) >= 3 ? SCORE_FILL.red : SCORE_FILL.amber;
         }
       },
     });
@@ -319,7 +334,7 @@ export function createSessionPdf(data: SessionReportData, defaultLogo?: string):
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(...MUTED);
-    doc.text('Escala 1-5 (5 = mejor estado). En ámbar, los valores bajos.', MARGIN, y + 1);
+    doc.text('Escala 1-10 (1 = muy mal, 10 = perfecto). En rojo, las respuestas en zona de alerta.', MARGIN, y + 1);
     y += 7;
   }
 
