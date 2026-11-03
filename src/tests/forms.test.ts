@@ -8,7 +8,8 @@ import { matchPlayer } from '../lib/forms/names';
 import { detectForm, parseRows } from '../lib/forms/parse';
 import { readFormFile } from '../lib/forms/readFile';
 import { detectDateOrder, parseTimestamp } from '../lib/forms/timestamps';
-import { zoneFromText } from '../lib/forms/zones';
+import { zoneFromText, zonesFromText } from '../lib/forms/zones';
+import { meaningfulNote, saysNotComing } from '../lib/forms/notes';
 
 const players: Player[] = [
   { id: 'p1', teamId: 't', name: 'Lucía Martín', position: 'Armadora', status: 'activa', archived: 0, createdAt: 0 },
@@ -153,7 +154,8 @@ describe('jugadoras', () => {
   it('reconoce la zona y el lado de la molestia', () => {
     expect(zoneFromText('Rodilla derecha, al saltar')).toEqual({ zone: 'Rodilla', side: 'derecha' });
     expect(zoneFromText('tobillo izq')).toEqual({ zone: 'Tobillo', side: 'izquierda' });
-    expect(zoneFromText('me duele la pierna')).toEqual({ zone: 'Otra', side: 'no aplica' });
+    expect(zoneFromText('me duele la pierna')).toEqual({ zone: 'Pierna / muslo', side: 'no aplica' });
+    expect(zoneFromText('me duele la cabeza')).toEqual({ zone: 'Otra', side: 'no aplica' });
     expect(zoneFromText('espalda')).toEqual({ zone: 'Espalda lumbar', side: 'no aplica' });
   });
 });
@@ -218,6 +220,100 @@ describe('archivo completo', () => {
     expect(auto.columns.map((c) => c.field)).toEqual(['timestamp', 'name', 'rpe']);
     const saved = detectForm(table, players, { 'intensidad del entrenamiento': 'ignore' });
     expect(saved.columns[2]).toMatchObject({ field: 'ignore', auto: false });
+  });
+});
+
+// Formato exacto del «Cuestionario Wellness U16A (Respuestas)» descargado de Hojas de cálculo:
+// mismos encabezados (con espacios al final y la pregunta de estrés en dos líneas) y mismas opciones.
+// Los nombres y respuestas son inventados.
+const U16_CSV = `Marca temporal,Nombre de la jugadora,¿Cuanto dormiste anoche?,¿Como fue la calidad de tu sueño?,¿Qué nivel de fatiga o cansancio físico sientes hoy? ,¿Qué nivel de dolor muscular sientes hoy? ,"¿Cómo está tu nivel de estrés hoy? 
+Considera el colegio, las pruebas, las preocupaciones personales y otras situaciones.",¿Cómo está tu estado de ánimo hoy? ,¿Tienes alguna molestia física o lesión que pueda afectar tu entrenamiento? ,"Si tienes alguna molestia, ¿en qué parte del cuerpo? ",¿Qué tan preparada te sientes para entrenar hoy? ,¿Hay algo que quieras comunicarle a tu entrenador antes de comenzar? 
+29/10/2026 10:14:57,Lucía Martín,Entre 6 y 7 horas,Mala,Mucho cansancio,Dolor moderado,Mucho estrés,Muy desanimada,"No, ninguna.",,Medianamente preparada,
+29/10/2026 16:30:17,Sofía Rojas,Más de 8 horas,Excelente,Nada de cansancio,Sin dolor muscular,Nada de estrés,Animada,"Sí, molestia moderada.","Rodilla izquierda, hombro derecho ",Totalmente preparada,nop 😄
+2/11/2026 9:48:05,Ana María Martínez,Menos de 5 horas,Muy mala,Cansancio moderado,Dolor intenso,Poco estrés,Desanimada,"Sí, dolor importante o lesión.",Rodillaaaaaa ,Nada preparada,Que no voy a ir
+2/11/2026 15:25:33,Lucía Martín,Entre 7 y 8 horas,Buena,Poco cansancio,Dolor leve,Estrés moderado,Normal,"Sí, molestia leve.",piernas ,Bien preparada,Antes del entrenamiento fui a fisico 
+`;
+
+describe('cuestionario Wellness U16A (formato real)', () => {
+  it('reconoce todas las columnas, jugadoras y respuestas', async () => {
+    const table = await readFormFile('Cuestionario Wellness U16A (Respuestas) - Respuestas de formulario 1.csv', buf(U16_CSV));
+    expect(table.headers).toHaveLength(12);
+    expect(table.rows).toHaveLength(4);
+    const form = detectForm(table, players);
+    expect(form.kind).toBe('pre');
+    expect(form.dateOrder).toBe('dmy');
+    expect(form.columns.map((c) => c.field)).toEqual([
+      'timestamp',
+      'name',
+      'sleepHours',
+      'sleep',
+      'fatigue',
+      'soreness',
+      'stress',
+      'mood',
+      'discomfort',
+      'discomfortZone',
+      'readiness',
+      'note',
+    ]);
+
+    const rows = parseRows(table, form, 'pre', players);
+    expect(rows.every((r) => r.problems.length === 0)).toBe(true);
+    expect(rows.map((r) => [r.match.player?.id, r.date])).toEqual([
+      ['p1', '2026-10-29'],
+      ['p3', '2026-10-29'],
+      ['p2', '2026-11-02'],
+      ['p1', '2026-11-02'],
+    ]);
+    expect(rows[2].submittedAt).toBe(new Date(2026, 10, 2, 9, 48, 5).getTime());
+
+    expect(rows[0].values).toEqual({
+      wellness: { sleepHours: 3, sleep: 2, fatigue: 2, soreness: 3, stress: 2, mood: 1, readiness: 3 },
+      discomfort: 0,
+    });
+    expect(rows[1].values.wellness).toEqual({ sleepHours: 5, sleep: 5, fatigue: 5, soreness: 5, stress: 5, mood: 4, readiness: 5 });
+    expect(rows[1].values.discomfort).toBe(2);
+    // «nop 😄» no es un mensaje.
+    expect(rows[1].values.note).toBeUndefined();
+    expect(rows[2].values).toMatchObject({ discomfort: 3, discomfortZone: 'Rodillaaaaaa', note: 'Que no voy a ir' });
+    expect(rows[2].values.wellness).toMatchObject({ sleepHours: 1, sleep: 1, soreness: 2, readiness: 1 });
+    expect(rows[3].values.note).toBe('Antes del entrenamiento fui a fisico');
+  });
+});
+
+describe('mensajes y zonas como los escriben las jugadoras', () => {
+  it('descarta los «no» y detecta quien avisa que no viene', () => {
+    for (const t of ['No nada', 'Nopp', 'nop 😄', 'nop', 'Nop', 'no', 'Nada ', 'ninguna', '']) expect(meaningfulNote(t)).toBeUndefined();
+    expect(meaningfulNote('Ya le dije 🫰🏻')).toBe('Ya le dije 🫰🏻');
+    expect(meaningfulNote('Que no voy a ir')).toBe('Que no voy a ir');
+    expect(saysNotComing('Que no voy a ir')).toBe(true);
+    expect(saysNotComing('hoy no voy a entrenar')).toBe(true);
+    expect(saysNotComing('No voy por la rodilla cueck')).toBe(true);
+    expect(saysNotComing('Antes del entrenamiento fui a fisico')).toBe(false);
+    expect(saysNotComing('q a medida q pasa el entreno me duele mas la rodilla')).toBe(false);
+  });
+
+  it('separa varias zonas, cada una con su lado', () => {
+    expect(zonesFromText('Rodilla izquierda, hombro derecho ')).toEqual([
+      { zone: 'Rodilla', side: 'izquierda' },
+      { zone: 'Hombro', side: 'derecha' },
+    ]);
+    expect(zonesFromText('tobillo y espalda baja')).toEqual([
+      { zone: 'Tobillo', side: 'no aplica' },
+      { zone: 'Espalda lumbar', side: 'no aplica' },
+    ]);
+    expect(zonesFromText('Rodillas y espalda')).toEqual([
+      { zone: 'Rodilla', side: 'ambos' },
+      { zone: 'Espalda lumbar', side: 'no aplica' },
+    ]);
+    expect(zonesFromText('en los muslos y tobillo ')).toEqual([
+      { zone: 'Pierna / muslo', side: 'ambos' },
+      { zone: 'Tobillo', side: 'no aplica' },
+    ]);
+    expect(zonesFromText('Rodillaaaaaa ')).toEqual([{ zone: 'Rodilla', side: 'no aplica' }]);
+    expect(zonesFromText('en las dos rodillas')).toEqual([{ zone: 'Rodilla', side: 'ambos' }]);
+    expect(zonesFromText('La pierna izquierda y que estoy enferma ')).toEqual([{ zone: 'Pierna / muslo', side: 'izquierda' }]);
+    expect(zonesFromText('Rodilla 😔')).toEqual([{ zone: 'Rodilla', side: 'no aplica' }]);
   });
 });
 

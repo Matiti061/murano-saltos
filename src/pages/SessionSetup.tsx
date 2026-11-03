@@ -12,6 +12,7 @@ import { latestResponsesOn } from '../db/forms';
 import { createLiveSession, getActiveSession, isPresent } from '../db/sessions';
 import { ATTENDANCE_LABEL, type AttendanceStatus, type FormResponse, type Player, type SessionType, type Wellness } from '../db/types';
 import { todayISO } from '../lib/format';
+import { saysNotComing } from '../lib/forms/notes';
 import { DISCOMFORT_LABEL } from '../lib/forms/zones';
 import { useActiveTeam } from '../hooks/useActiveTeam';
 import { NoTeam } from './Dashboard';
@@ -235,6 +236,7 @@ export function SessionSetup() {
                         <span className="font-semibold text-slate-900">{p.name}</span>
                         <StatusBadge status={p.status} />
                         {formToday?.has(p.id!) && <Badge tone="green">Encuesta ✓</Badge>}
+                        {saysNotComing(formToday?.get(p.id!)?.values.note) && <Badge tone="red">Avisa que no viene</Badge>}
                         {formToday?.get(p.id!)?.values.discomfort ? (
                           <Badge tone="amber">{DISCOMFORT_LABEL[formToday.get(p.id!)!.values.discomfort!]}</Badge>
                         ) : null}

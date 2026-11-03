@@ -216,6 +216,7 @@ export const BODY_ZONES = [
   'Mano / dedos',
   'Codo / muñeca',
   'Cuello',
+  'Pierna / muslo',
   'Otra',
 ];
 

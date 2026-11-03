@@ -6,6 +6,7 @@ import { sortPlayers } from '../db/players';
 import { db } from '../db/schema';
 import { useSettings } from '../db/settings';
 import { hasCompleteWellness } from '../lib/forms/parse';
+import { saysNotComing } from '../lib/forms/notes';
 import { DISCOMFORT_LABEL } from '../lib/forms/zones';
 import { todayISO } from '../lib/format';
 import { wellnessLowItems, wellnessTotal } from '../lib/metrics';
@@ -66,6 +67,7 @@ export function TodayForms({ teamId }: { teamId: string }) {
                     {p?.name ?? 'Jugadora'}
                   </Link>
                   <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                    {saysNotComing(r.values.note) && <Badge tone="red">Avisa que no viene</Badge>}
                     {hasCompleteWellness(w) && <Badge tone={low.length ? 'amber' : 'slate'}>{wellnessTotal(w)}/20</Badge>}
                     {low.length > 0 && <span className="text-xs text-amber-800">{low.join(', ')}</span>}
                     {r.values.discomfort ? (

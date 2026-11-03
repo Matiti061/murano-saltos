@@ -2,6 +2,7 @@ import type { FormKind, FormValues, Player, Wellness } from '../../db/types';
 import { toISODate } from '../format';
 import { FIELD_LABEL, fieldForHeader, optionValue, rpeValue, WELLNESS_FIELDS, type FormField } from './fields';
 import { matchPlayer, type PlayerMatch } from './names';
+import { meaningfulNote } from './notes';
 import type { Cell, SheetTable } from './readFile';
 import { cellText, normalize } from './text';
 import { detectDateOrder, parseTimestamp, type DateOrder } from './timestamps';
@@ -137,7 +138,7 @@ export function parseRows(table: SheetTable, form: DetectedForm, kind: FormKind,
       }
       const zone = text('discomfortZone');
       if (zone) values.discomfortZone = zone;
-      const note = text('note');
+      const note = meaningfulNote(text('note'));
       if (note) values.note = note;
     } else {
       const answer = text('rpe');

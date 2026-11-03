@@ -1,6 +1,6 @@
 import { hasCompleteWellness } from '../lib/forms/parse';
 import { normalize } from '../lib/forms/text';
-import { DISCOMFORT_INTENSITY, DISCOMFORT_LABEL, zoneFromText } from '../lib/forms/zones';
+import { DISCOMFORT_INTENSITY, DISCOMFORT_LABEL, zonesFromText } from '../lib/forms/zones';
 import { db } from './schema';
 import type { Attendance, FormKind, FormResponse, FormValues, Session } from './types';
 
@@ -99,31 +99,43 @@ export function attendanceChanges(att: Attendance, r: Pick<FormResponse, 'kind' 
   return changes;
 }
 
-/** Crea, actualiza o quita la molestia que declaró la jugadora en el formulario de ese día. */
+/**
+ * Crea, actualiza o quita las molestias que declaró la jugadora en el formulario de ese día:
+ * una por zona («Rodilla izquierda, hombro derecho» → dos), sin duplicar al volver a importar.
+ */
 async function syncFormComplaint(r: FormResponse, sessionId?: string) {
-  const existing = (await db.complaints.where('playerId').equals(r.playerId).toArray()).find(
+  const existing = (await db.complaints.where('playerId').equals(r.playerId).toArray()).filter(
     (c) => c.fromForm && c.date === r.date,
   );
   const level = r.values.discomfort ?? 0;
   if (level <= 0) {
-    if (existing) await db.complaints.delete(existing.id!);
+    if (existing.length) await db.complaints.bulkDelete(existing.map((c) => c.id!));
     return;
   }
   const where = r.values.discomfortZone ?? '';
-  const { zone, side } = zoneFromText(where);
-  const data = {
-    playerId: r.playerId,
-    date: r.date,
-    zone,
-    side,
-    intensity: DISCOMFORT_INTENSITY[level] ?? 5,
-    kind: 'molestia' as const,
-    description: `Formulario pre-entreno: ${DISCOMFORT_LABEL[level].toLowerCase()}${where ? `. «${where}»` : ''}`,
-    fromForm: true,
-    ...(sessionId ? { sessionId } : {}),
-  };
-  if (existing) await db.complaints.update(existing.id!, data);
-  else await db.complaints.add({ ...data, createdAt: Date.now() });
+  const kept = new Set<string>();
+  for (const { zone, side } of zonesFromText(where)) {
+    const data = {
+      playerId: r.playerId,
+      date: r.date,
+      zone,
+      side,
+      intensity: DISCOMFORT_INTENSITY[level] ?? 5,
+      kind: 'molestia' as const,
+      description: `Formulario pre-entreno: ${DISCOMFORT_LABEL[level].toLowerCase()}${where ? `. «${where.trim()}»` : ''}`,
+      fromForm: true,
+      ...(sessionId ? { sessionId } : {}),
+    };
+    const match = existing.find((c) => c.zone === zone);
+    if (match) {
+      await db.complaints.update(match.id!, data);
+      kept.add(match.id!);
+    } else {
+      await db.complaints.add({ ...data, createdAt: Date.now() });
+    }
+  }
+  const stale = existing.filter((c) => !kept.has(c.id!)).map((c) => c.id!);
+  if (stale.length) await db.complaints.bulkDelete(stale);
 }
 
 /**

@@ -15,6 +15,7 @@ import { FIELD_LABEL, type FormField } from '../lib/forms/fields';
 import { detectForm, hasCompleteWellness, kindFromColumns, parseRows, type DetectedForm, type ParsedRow } from '../lib/forms/parse';
 import { readFormFile, type SheetTable } from '../lib/forms/readFile';
 import { normalize } from '../lib/forms/text';
+import { saysNotComing } from '../lib/forms/notes';
 import { DISCOMFORT_LABEL } from '../lib/forms/zones';
 import { fmtDate, fmtTime } from '../lib/format';
 import { wellnessLowItems, wellnessTotal } from '../lib/metrics';
@@ -30,6 +31,7 @@ function ValuesSummary({ kind, values, threshold }: { kind: FormKind; values: Fo
   return (
     <div className="flex flex-wrap items-center gap-1">
       {complete ? <Badge tone={low.length ? 'amber' : 'slate'}>{wellnessTotal(w)}/20</Badge> : <Badge>Incompleto</Badge>}
+      {saysNotComing(values.note) && <Badge tone="red">Avisa que no viene</Badge>}
       {low.length > 0 && <span className="text-xs text-amber-800">{low.join(', ')}</span>}
       {values.discomfort ? <Badge tone={values.discomfort >= 3 ? 'red' : 'amber'}>{DISCOMFORT_LABEL[values.discomfort]}</Badge> : null}
       {values.note && (
