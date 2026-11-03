@@ -19,6 +19,7 @@ import { useSettings } from '../db/settings';
 import { ATTENDANCE_LABEL, SESSION_TYPE_LABEL, type Complaint } from '../db/types';
 import { fmtDate, fmtDateShort, fmtDayMonth, fmtNum, todayISO } from '../lib/format';
 import { acwrSeries, computeAcwr, itemScore, sessionRpeLoad, weeklyTotals, WELLNESS_QUESTIONS, wellnessScore, type WellnessKey } from '../lib/metrics';
+import { wellnessTimeline } from '../lib/wellnessTimeline';
 
 export function PlayerDetail() {
   const id = useParams().id!;
@@ -28,6 +29,7 @@ export function PlayerDetail() {
   // null = no existe; undefined = cargando.
   const player = useLiveQuery(() => db.players.get(id).then((p) => p ?? null), [id]);
   const rows = useLiveQuery(() => loadPlayerRows(id), [id]);
+  const responses = useLiveQuery(() => db.formResponses.where('playerId').equals(id).toArray(), [id]);
   const complaints = useLiveQuery(
     () => db.complaints.where('playerId').equals(id).toArray().then((cs) => cs.sort((a, b) => b.date.localeCompare(a.date))),
     [id],
@@ -38,7 +40,7 @@ export function PlayerDetail() {
   const [wellnessKey, setWellnessKey] = useState<WellnessKey | 'general'>('general');
 
   const stats = useMemo(() => {
-    if (!rows) return null;
+    if (!rows || !responses) return null;
     const points = loadPointsFrom(rows);
     const today = todayISO();
     const recent = rows.filter((r) => isPresent(r.attendance.status)).slice(-20);
@@ -60,16 +62,16 @@ export function PlayerDetail() {
       acwr: acwrSeries(points, 'jumps', settings)
         .slice(-30)
         .map((a) => ({ label: fmtDateShort(a.date), value: a.ratio, detail: fmtDate(a.date) })),
-      wellnessRows: rows.filter((r) => r.attendance.wellness),
+      wellness: wellnessTimeline(rows, responses),
       sessionsCount: rows.filter((r) => isPresent(r.attendance.status)).length,
     };
-  }, [rows, settings]);
+  }, [rows, responses, settings]);
 
   if (player === undefined || !stats) return null;
-  const wellnessChart = stats.wellnessRows.slice(-20).map((r) => {
-    const w = r.attendance.wellness!;
+  const wellnessChart = stats.wellness.slice(-20).map((e) => {
+    const w = e.wellness;
     const v = wellnessKey === 'general' ? wellnessScore(w) : w[wellnessKey] != null ? itemScore(w[wellnessKey]!) : null;
-    return { label: fmtDateShort(r.session.date), value: v, detail: fmtDate(r.session.date) };
+    return { label: fmtDateShort(e.date), value: v, detail: fmtDate(e.date) + (e.sessionId ? '' : ' · solo encuesta') };
   });
   if (player === null) {
     return (
@@ -249,23 +251,29 @@ export function PlayerDetail() {
         </Card>
       </div>
 
-      {stats.wellnessRows.length > 0 && (
+      {stats.wellness.length > 0 && (
         <Card className="mb-5">
-          <CardHeader title="Wellness por pregunta" subtitle="Lo que respondió en cada entrenamiento, del más reciente al más antiguo" />
+          <CardHeader title="Wellness por pregunta" subtitle="Lo que respondió cada día, del más reciente al más antiguo (incluye encuestas de días sin entreno creado)" />
           <div className="max-h-[32rem] overflow-y-auto">
             <WellnessGrid
               labelHeader="Fecha"
               showNotes
-              rows={[...stats.wellnessRows].reverse().map(({ session, attendance: a }) => ({
-                key: a.id!,
-                label: (
-                  <Link className="font-semibold whitespace-nowrap text-orange-700 hover:underline" to={`/entreno/${session.id}`}>
-                    {fmtDate(session.date)}
+              rows={[...stats.wellness].reverse().map((e) => ({
+                key: e.key,
+                label: e.sessionId ? (
+                  <Link className="font-semibold whitespace-nowrap text-orange-700 hover:underline" to={`/entreno/${e.sessionId}`}>
+                    {fmtDate(e.date)}
                   </Link>
+                ) : (
+                  <span className="whitespace-nowrap">
+                    <span className="block font-semibold text-slate-800">{fmtDate(e.date)}</span>
+                    <span className="text-xs text-slate-500">Solo encuesta</span>
+                  </span>
                 ),
-                wellness: a.wellness,
-                discomfort: a.discomfort,
-                note: a.playerNote,
+                wellness: e.wellness,
+                discomfort: e.discomfort,
+                discomfortZone: e.discomfortZone,
+                note: e.note,
               }))}
             />
           </div>

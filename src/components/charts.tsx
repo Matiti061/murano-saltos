@@ -151,7 +151,7 @@ export function TrendLineChart({
   color?: string;
   height?: number;
 }) {
-  if (data.filter((d) => d.value != null).length < 2) return <NoChartData />;
+  if (!data.some((d) => d.value != null)) return <NoChartData />;
   return (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: -12 }}>
